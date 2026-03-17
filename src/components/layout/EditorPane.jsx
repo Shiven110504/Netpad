@@ -21,7 +21,6 @@ import Highlight from '@tiptap/extension-highlight';
 import { CiscoHighlight } from '../cisco/CiscoHighlightPlugin';
 import { KeywordHighlight, keywordHighlightKey } from '../highlighting/KeywordHighlightPlugin';
 import { detectCiscoConfig } from '../cisco/CiscoDetector';
-import { Panel, Group, Separator } from 'react-resizable-panels';
 
 // Custom TextStyle with fontSize
 const CustomTextStyle = TextStyle.extend({
@@ -209,15 +208,6 @@ export default function EditorPane({ pane }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isActive, pane.id, activeTab, dispatch]);
 
-  const editorContent = (
-    <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-      {findMode && (
-        <FindReplace editor={editor} mode={findMode} onClose={() => setFindMode(null)} />
-      )}
-      <EditorContent editor={editor} style={{ height: '100%' }} />
-    </div>
-  );
-
   return (
     <div style={{
       display: 'flex',
@@ -227,20 +217,22 @@ export default function EditorPane({ pane }) {
     }}>
       <TabBar pane={pane} />
 
-      {/* Content area: editor or editor+preview */}
-      {activeTab?.isMarkdown ? (
-        <Group direction="horizontal" style={{ flex: 1 }}>
-          <Panel defaultSize={50} minSize={20}>
-            {editorContent}
-          </Panel>
-          <Separator style={{ width: 4, background: 'var(--resize-handle)', cursor: 'col-resize' }} />
-          <Panel defaultSize={50} minSize={20}>
+      {/* Content area: inline markdown render or editor */}
+      <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+        {findMode && (
+          <FindReplace editor={editor} mode={findMode} onClose={() => setFindMode(null)} />
+        )}
+        {/* Always keep editor in DOM but hide it when markdown mode is on */}
+        <div style={{ display: activeTab?.isMarkdown ? 'none' : 'block', height: '100%' }}>
+          <EditorContent editor={editor} style={{ height: '100%' }} />
+        </div>
+        {/* Show markdown preview inline when markdown mode is on */}
+        {activeTab?.isMarkdown && (
+          <div style={{ height: '100%', overflow: 'auto' }}>
             <MarkdownPreview content={markdownText} />
-          </Panel>
-        </Group>
-      ) : (
-        editorContent
-      )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

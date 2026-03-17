@@ -36,7 +36,7 @@ export default function GlobalToolbar() {
 
       <button
         onClick={toggleMarkdown}
-        title="Toggle Markdown Preview (Ctrl+Shift+M)"
+        title="Toggle Markdown Render Mode (Ctrl+Shift+M)"
         style={{
           display: 'flex',
           alignItems: 'center',

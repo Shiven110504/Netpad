@@ -215,6 +215,22 @@ html, body, #root {
   margin: 0.25em 0;
 }
 
+.tiptap-editor ul {
+  list-style-type: disc;
+}
+
+.tiptap-editor ol {
+  list-style-type: decimal;
+}
+
+.tiptap-editor ul ul {
+  list-style-type: circle;
+}
+
+.tiptap-editor ul ul ul {
+  list-style-type: square;
+}
+
 .tiptap-editor li { margin: 0.1em 0; }
 
 .tiptap-editor blockquote {
@@ -251,6 +267,54 @@ html, body, #root {
   border: none;
   border-top: 1px solid var(--border-color);
   margin: 1em 0;
+  min-height: 1em;
+  overflow: visible;
+  position: relative;
+}
+
+/* Ensure hr shows line number (it's self-closing so needs explicit ::after) */
+.tiptap-editor.show-line-numbers hr::after {
+  content: counter(line-number);
+  position: absolute;
+  left: -40px;
+  top: -0.5em;
+  width: 32px;
+  text-align: right;
+  color: var(--editor-line-number);
+  font-size: 12px;
+  font-family: "SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, monospace;
+  line-height: inherit;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* ul/ol containers: don't increment (li children do instead) */
+.tiptap-editor.show-line-numbers > ul,
+.tiptap-editor.show-line-numbers > ol {
+  counter-increment: none;
+}
+
+/* Each top-level li increments and shows its own line number */
+.tiptap-editor.show-line-numbers > ul > li,
+.tiptap-editor.show-line-numbers > ol > li {
+  counter-increment: line-number;
+  position: relative;
+}
+
+.tiptap-editor.show-line-numbers > ul > li::after,
+.tiptap-editor.show-line-numbers > ol > li::after {
+  content: counter(line-number);
+  position: absolute;
+  left: -40px;
+  top: 0;
+  width: 32px;
+  text-align: right;
+  color: var(--editor-line-number);
+  font-size: 12px;
+  font-family: "SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, monospace;
+  line-height: inherit;
+  user-select: none;
+  pointer-events: none;
 }
 
 .tiptap-editor a {
