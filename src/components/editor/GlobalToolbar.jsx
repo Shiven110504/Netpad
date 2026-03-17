@@ -4,6 +4,7 @@ import { useApp } from '../../state/AppContext';
 import { findPaneById } from '../../state/tabHelpers';
 import { Eye, Download } from 'lucide-react';
 import { exportAsHTML, exportAsText, exportAsMarkdown } from '../../utils/exportHelpers';
+import WeatherWidget from '../widgets/WeatherWidget';
 
 export default function GlobalToolbar() {
   const { activeEditor, layout, dispatch } = useApp();
@@ -32,6 +33,16 @@ export default function GlobalToolbar() {
     }}>
       <div style={{ flex: 1, overflow: 'hidden', minWidth: 0 }}>
         <EditorToolbar editor={activeEditor} />
+      </div>
+
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        padding: '0 8px',
+        color: 'var(--text-secondary)',
+        flexShrink: 0,
+      }}>
+        <WeatherWidget />
       </div>
 
       <button
