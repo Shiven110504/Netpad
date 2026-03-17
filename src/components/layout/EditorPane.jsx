@@ -40,6 +40,102 @@ const CustomTextStyle = TextStyle.extend({
   },
 });
 
+const cancelBtnStyle = {
+  height: 30,
+  padding: '0 14px',
+  fontSize: 13,
+  background: 'transparent',
+  color: 'var(--text-primary)',
+  border: '1px solid var(--border-color)',
+  borderRadius: 4,
+  cursor: 'pointer',
+};
+
+const submitBtnStyle = {
+  height: 30,
+  padding: '0 14px',
+  fontSize: 13,
+  background: 'var(--accent-color)',
+  color: 'var(--accent-text)',
+  border: 'none',
+  borderRadius: 4,
+  cursor: 'pointer',
+};
+
+function LinkDialog({ editor, onClose }) {
+  const [url, setUrl] = useState(() => editor?.getAttributes('link').href || '');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (url) {
+      editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+    } else {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run();
+    }
+    onClose();
+  };
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  return (
+    <div
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 5000,
+        background: 'rgba(0,0,0,0.15)',
+      }}
+    >
+      <div style={{
+        background: 'var(--menu-bg)',
+        border: '1px solid var(--border-color)',
+        borderRadius: 8,
+        padding: 20,
+        boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+        minWidth: 340,
+      }}>
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: 12, fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>
+            Insert Hyperlink
+          </div>
+          <input
+            autoFocus
+            type="url"
+            placeholder="https://..."
+            value={url}
+            onChange={e => setUrl(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '6px 10px',
+              border: '1px solid var(--border-color)',
+              borderRadius: 4,
+              background: 'var(--bg-primary)',
+              color: 'var(--text-primary)',
+              fontSize: 13,
+              boxSizing: 'border-box',
+            }}
+          />
+          <div style={{ display: 'flex', gap: 8, marginTop: 14, justifyContent: 'flex-end' }}>
+            <button type="button" onClick={onClose} style={cancelBtnStyle}>Cancel</button>
+            <button type="submit" style={submitBtnStyle}>
+              {url ? 'Insert Link' : 'Remove Link'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function EditorPane({ pane }) {
   const { dispatch, layout, settings, registerEditor, unregisterEditor, keywordRules } = useApp();
   const activeTab = pane.tabs.find(t => t.id === pane.activeTabId) || pane.tabs[0];
@@ -47,6 +143,7 @@ export default function EditorPane({ pane }) {
   const isActive = layout.activePaneId === pane.id;
   const [findMode, setFindMode] = useState(null);
   const [markdownText, setMarkdownText] = useState('');
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
   const ciscoDetectTimer = useRef(null);
   const keywordRulesRef = useRef(keywordRules);
   keywordRulesRef.current = keywordRules;
@@ -204,6 +301,11 @@ export default function EditorPane({ pane }) {
           isMarkdown: !activeTab?.isMarkdown,
         });
       }
+      // Ctrl+K / Cmd+K — Insert / edit hyperlink
+      if (isMod && e.key === 'k') {
+        e.preventDefault();
+        setShowLinkDialog(true);
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -215,6 +317,9 @@ export default function EditorPane({ pane }) {
         <FindReplace editor={editor} mode={findMode} onClose={() => setFindMode(null)} />
       )}
       <EditorContent editor={editor} style={{ height: '100%' }} />
+      {showLinkDialog && (
+        <LinkDialog editor={editor} onClose={() => setShowLinkDialog(false)} />
+      )}
     </div>
   );
 

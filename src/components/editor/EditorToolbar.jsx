@@ -29,7 +29,7 @@ function ToolbarButton({ icon: Icon, label, isActive, onClick, disabled }) {
         padding: 0,
       }}
       onMouseEnter={e => { if (!disabled) e.target.style.background = 'var(--toolbar-btn-hover)'; }}
-      onMouseLeave={e => { if (!isActive) e.target.style.background = 'transparent'; }}
+      onMouseLeave={e => { e.target.style.background = isActive ? 'var(--toolbar-btn-active)' : 'transparent'; }}
     >
       <Icon size={16} />
     </button>
@@ -69,7 +69,7 @@ function TableGridPicker({ onInsert, onClose }) {
       border: '1px solid var(--menu-border)',
       borderRadius: 6,
       padding: 8,
-      zIndex: 1000,
+      zIndex: 9999,
       boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
     }}>
       <div style={{ marginBottom: 6, fontSize: 12, color: 'var(--text-secondary)' }}>
@@ -105,6 +105,10 @@ export default function EditorToolbar({ editor }) {
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
   const linkInputRef = useRef(null);
+
+  // Format Painter state
+  const [formatPainterActive, setFormatPainterActive] = useState(false);
+  const [copiedMarks, setCopiedMarks] = useState(null);
 
   if (!editor) return null;
 
@@ -142,6 +146,66 @@ export default function EditorToolbar({ editor }) {
   const handleInsertTable = (rows, cols) => {
     editor.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run();
   };
+
+  const handleFormatPainter = () => {
+    if (!editor) return;
+
+    if (formatPainterActive) {
+      setFormatPainterActive(false);
+      setCopiedMarks(null);
+      return;
+    }
+
+    // Copy current marks from selection or cursor position
+    const { from, to } = editor.state.selection;
+    const marks = {};
+    editor.state.doc.nodesBetween(from, to, (node) => {
+      node.marks.forEach(mark => {
+        marks[mark.type.name] = mark.attrs;
+      });
+    });
+
+    // Also check cursor position marks
+    const $pos = editor.state.selection.$from;
+    $pos.marks().forEach(mark => {
+      marks[mark.type.name] = mark.attrs;
+    });
+
+    setCopiedMarks(marks);
+    setFormatPainterActive(true);
+  };
+
+  // Apply format painter on selection change
+  useEffect(() => {
+    if (!formatPainterActive || !copiedMarks || !editor) return;
+
+    const handleSelectionUpdate = () => {
+      const { from, to, empty } = editor.state.selection;
+      if (!empty && formatPainterActive) {
+        // Apply marks to selection
+        const chain = editor.chain().focus();
+
+        // First clear existing marks
+        chain.unsetAllMarks();
+
+        // Apply stored marks
+        if (copiedMarks.bold) chain.setBold();
+        if (copiedMarks.italic) chain.setItalic();
+        if (copiedMarks.underline) chain.setUnderline();
+        if (copiedMarks.strike) chain.setStrike();
+        if (copiedMarks.textStyle?.color) chain.setColor(copiedMarks.textStyle.color);
+        if (copiedMarks.textStyle?.fontSize) chain.setMark('textStyle', { fontSize: copiedMarks.textStyle.fontSize });
+        if (copiedMarks.textStyle?.fontFamily) chain.setFontFamily(copiedMarks.textStyle.fontFamily);
+
+        chain.run();
+        setFormatPainterActive(false);
+        setCopiedMarks(null);
+      }
+    };
+
+    editor.on('selectionUpdate', handleSelectionUpdate);
+    return () => editor.off('selectionUpdate', handleSelectionUpdate);
+  }, [formatPainterActive, copiedMarks, editor]);
 
   return (
     <div style={{
@@ -221,6 +285,14 @@ export default function EditorToolbar({ editor }) {
       <ToolbarButton icon={Strikethrough} label="Strikethrough" isActive={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()} />
       <ToolbarButton icon={Code} label="Inline Code" isActive={editor.isActive('code')} onClick={() => editor.chain().focus().toggleCode().run()} />
 
+      {/* Format Painter */}
+      <ToolbarButton
+        icon={Paintbrush}
+        label="Format Painter"
+        isActive={formatPainterActive}
+        onClick={handleFormatPainter}
+      />
+
       <ToolbarSeparator />
 
       {/* Text Color */}
@@ -283,7 +355,7 @@ export default function EditorToolbar({ editor }) {
             border: '1px solid var(--menu-border)',
             borderRadius: 6,
             padding: 8,
-            zIndex: 1000,
+            zIndex: 9999,
             display: 'flex',
             gap: 4,
             boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
