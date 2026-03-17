@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import SplitPaneTree from './layout/SplitPaneTree';
 import StatusBar from './StatusBar';
 import SettingsModal from './settings/SettingsModal';
@@ -7,10 +7,9 @@ import KeywordRuleEditor from './highlighting/KeywordRuleEditor';
 import StickyNotes from './widgets/StickyNotes';
 import SubnetCalculator from './widgets/SubnetCalculator';
 import { useApp } from '../state/AppContext';
-import { loadKeywordRules, saveKeywordRules } from '../state/persistence';
 
 export default function AppShell() {
-  const { layout, dispatch } = useApp();
+  const { layout, dispatch, keywordRules, updateKeywordRules } = useApp();
 
   // Modal/widget visibility state
   const [showSettings, setShowSettings] = useState(false);
@@ -18,14 +17,6 @@ export default function AppShell() {
   const [showKeywordRules, setShowKeywordRules] = useState(false);
   const [showStickyNotes, setShowStickyNotes] = useState(false);
   const [showSubnetCalc, setShowSubnetCalc] = useState(false);
-
-  // Keyword rules state
-  const [keywordRules, setKeywordRules] = useState(() => loadKeywordRules());
-
-  const handleRulesChange = useCallback((newRules) => {
-    setKeywordRules(newRules);
-    saveKeywordRules(newRules);
-  }, []);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -125,7 +116,7 @@ export default function AppShell() {
         <KeywordRuleEditor
           onClose={() => setShowKeywordRules(false)}
           rules={keywordRules}
-          onRulesChange={handleRulesChange}
+          onRulesChange={updateKeywordRules}
         />
       )}
 

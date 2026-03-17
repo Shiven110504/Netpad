@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, useState, useEffect, useCallback, useRef } from 'react';
 import { layoutReducer, initialLayout } from './layoutReducer';
-import { loadState, saveState } from './persistence';
+import { loadState, saveState, loadKeywordRules, saveKeywordRules } from './persistence';
 import { DEFAULT_SETTINGS } from '../utils/constants';
 
 const AppContext = createContext(null);
@@ -18,6 +18,13 @@ export function AppProvider({ children }) {
     }
     return initialLayout();
   });
+
+  const [keywordRules, setKeywordRules] = useState(() => loadKeywordRules());
+
+  const updateKeywordRules = useCallback((newRules) => {
+    setKeywordRules(newRules);
+    saveKeywordRules(newRules);
+  }, []);
 
   // Theme management
   useEffect(() => {
@@ -65,6 +72,8 @@ export function AppProvider({ children }) {
     setSettings,
     updateSettings,
     toggleTheme,
+    keywordRules,
+    updateKeywordRules,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
