@@ -288,10 +288,15 @@ html, body, #root {
   pointer-events: none;
 }
 
-/* ul/ol containers: don't increment (li children do instead) */
+/* ul/ol containers: don't increment and hide the default ::after line number */
 .tiptap-editor.show-line-numbers > ul,
 .tiptap-editor.show-line-numbers > ol {
   counter-increment: none;
+}
+
+.tiptap-editor.show-line-numbers > ul::after,
+.tiptap-editor.show-line-numbers > ol::after {
+  display: none;
 }
 
 /* Each top-level li increments and shows its own line number */
@@ -305,7 +310,7 @@ html, body, #root {
 .tiptap-editor.show-line-numbers > ol > li::after {
   content: counter(line-number);
   position: absolute;
-  left: -40px;
+  left: calc(-1.5em - 40px);
   top: 0;
   width: 32px;
   text-align: right;
