@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import {
   Bold, Italic, Underline, Strikethrough, Code, Heading1, Heading2, Heading3,
   List, ListOrdered, Quote, Minus, Undo2, Redo2, Link as LinkIcon,
@@ -47,10 +48,18 @@ function ToolbarSeparator() {
   );
 }
 
-function TableGridPicker({ onInsert, onClose }) {
+function TableGridPicker({ onInsert, onClose, anchorRef }) {
   const [hoverRow, setHoverRow] = useState(0);
   const [hoverCol, setHoverCol] = useState(0);
   const ref = useRef(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    if (anchorRef?.current) {
+      const rect = anchorRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 4, left: rect.left });
+    }
+  }, [anchorRef]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -60,11 +69,11 @@ function TableGridPicker({ onInsert, onClose }) {
     return () => document.removeEventListener('mousedown', handler);
   }, [onClose]);
 
-  return (
+  return ReactDOM.createPortal(
     <div ref={ref} style={{
-      position: 'absolute',
-      top: '100%',
-      left: 0,
+      position: 'fixed',
+      top: pos.top,
+      left: pos.left,
       background: 'var(--menu-bg)',
       border: '1px solid var(--menu-border)',
       borderRadius: 6,
@@ -96,7 +105,84 @@ function TableGridPicker({ onInsert, onClose }) {
           );
         })}
       </div>
-    </div>
+    </div>,
+    document.body
+  );
+}
+
+function LinkInputPopup({ linkUrl, setLinkUrl, onSubmit, onClose, anchorRef }) {
+  const ref = useRef(null);
+  const inputRef = useRef(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    if (anchorRef?.current) {
+      const rect = anchorRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 4, left: rect.left });
+    }
+  }, [anchorRef]);
+
+  useEffect(() => {
+    setTimeout(() => inputRef.current?.focus(), 50);
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) onClose();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  return ReactDOM.createPortal(
+    <div ref={ref} style={{
+      position: 'fixed',
+      top: pos.top,
+      left: pos.left,
+      background: 'var(--menu-bg)',
+      border: '1px solid var(--menu-border)',
+      borderRadius: 6,
+      padding: 8,
+      zIndex: 9999,
+      display: 'flex',
+      gap: 4,
+      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+    }}>
+      <input
+        ref={inputRef}
+        type="text"
+        placeholder="https://..."
+        value={linkUrl}
+        onChange={e => setLinkUrl(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') onSubmit(); if (e.key === 'Escape') onClose(); }}
+        style={{
+          width: 220,
+          height: 26,
+          fontSize: 12,
+          padding: '0 8px',
+          border: '1px solid var(--border-color)',
+          borderRadius: 4,
+          background: 'var(--bg-primary)',
+          color: 'var(--text-primary)',
+        }}
+      />
+      <button
+        onClick={onSubmit}
+        style={{
+          height: 26,
+          padding: '0 12px',
+          fontSize: 12,
+          background: 'var(--accent-color)',
+          color: 'var(--accent-text)',
+          border: 'none',
+          borderRadius: 4,
+          cursor: 'pointer',
+        }}
+      >
+        OK
+      </button>
+    </div>,
+    document.body
   );
 }
 
@@ -105,12 +191,24 @@ export default function EditorToolbar({ editor }) {
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
   const linkInputRef = useRef(null);
+  const tableButtonRef = useRef(null);
+  const linkButtonRef = useRef(null);
 
   // Format Painter state
   const [formatPainterActive, setFormatPainterActive] = useState(false);
   const [copiedMarks, setCopiedMarks] = useState(null);
 
-  // Apply format painter on selection change — must be before any early return
+  // Bug 4 fix: force re-render on every editor transaction so toolbar state stays in sync
+  const [, setForceUpdate] = useState(0);
+
+  useEffect(() => {
+    if (!editor) return;
+    const handler = () => setForceUpdate(n => n + 1);
+    editor.on('transaction', handler);
+    return () => editor.off('transaction', handler);
+  }, [editor]);
+
+  // Bug 6 fix: Apply format painter on selection change
   useEffect(() => {
     if (!formatPainterActive || !copiedMarks || !editor) return;
 
@@ -118,14 +216,35 @@ export default function EditorToolbar({ editor }) {
       const { empty } = editor.state.selection;
       if (!empty && formatPainterActive) {
         const chain = editor.chain().focus();
+
+        // Clear existing marks
         chain.unsetAllMarks();
+
+        // Apply copied marks
         if (copiedMarks.bold) chain.setBold();
         if (copiedMarks.italic) chain.setItalic();
         if (copiedMarks.underline) chain.setUnderline();
         if (copiedMarks.strike) chain.setStrike();
-        if (copiedMarks.textStyle?.color) chain.setColor(copiedMarks.textStyle.color);
-        if (copiedMarks.textStyle?.fontSize) chain.setMark('textStyle', { fontSize: copiedMarks.textStyle.fontSize });
-        if (copiedMarks.textStyle?.fontFamily) chain.setFontFamily(copiedMarks.textStyle.fontFamily);
+        if (copiedMarks.code) chain.setCode();
+
+        // Apply text style properties
+        if (copiedMarks.textStyle) {
+          if (copiedMarks.textStyle.color) {
+            chain.setColor(copiedMarks.textStyle.color);
+          }
+          if (copiedMarks.textStyle.fontSize) {
+            chain.setMark('textStyle', { fontSize: copiedMarks.textStyle.fontSize });
+          }
+          if (copiedMarks.textStyle.fontFamily) {
+            chain.setFontFamily(copiedMarks.textStyle.fontFamily);
+          }
+        }
+
+        // Apply highlight
+        if (copiedMarks.highlight) {
+          chain.setHighlight(copiedMarks.highlight);
+        }
+
         chain.run();
         setFormatPainterActive(false);
         setCopiedMarks(null);
@@ -149,7 +268,6 @@ export default function EditorToolbar({ editor }) {
       const existing = editor.getAttributes('link').href || '';
       setLinkUrl(existing);
       setShowLinkInput(true);
-      setTimeout(() => linkInputRef.current?.focus(), 50);
     }
   };
 
@@ -173,6 +291,7 @@ export default function EditorToolbar({ editor }) {
     editor.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run();
   };
 
+  // Bug 6 fix: improved format painter mark collection
   const handleFormatPainter = () => {
     if (!editor) return;
 
@@ -182,20 +301,47 @@ export default function EditorToolbar({ editor }) {
       return;
     }
 
-    // Copy current marks from selection or cursor position
-    const { from, to } = editor.state.selection;
+    // Collect marks from cursor position or selection
+    const { from, to, empty } = editor.state.selection;
     const marks = {};
-    editor.state.doc.nodesBetween(from, to, (node) => {
-      node.marks.forEach(mark => {
-        marks[mark.type.name] = mark.attrs;
-      });
-    });
 
-    // Also check cursor position marks
-    const $pos = editor.state.selection.$from;
-    $pos.marks().forEach(mark => {
-      marks[mark.type.name] = mark.attrs;
-    });
+    if (empty) {
+      // Use stored marks (marks that would be applied to new input) or marks at cursor
+      const storedMarks = editor.state.storedMarks || editor.state.selection.$from.marks();
+      storedMarks.forEach(mark => {
+        if (mark.type.name === 'textStyle') {
+          marks.textStyle = { ...mark.attrs };
+        } else if (mark.type.name === 'highlight') {
+          marks.highlight = { ...mark.attrs };
+        } else {
+          marks[mark.type.name] = true;
+        }
+      });
+    } else {
+      // Collect marks from the first character of the selection
+      const node = editor.state.doc.nodeAt(from);
+      if (node && node.marks) {
+        node.marks.forEach(mark => {
+          if (mark.type.name === 'textStyle') {
+            marks.textStyle = { ...mark.attrs };
+          } else if (mark.type.name === 'highlight') {
+            marks.highlight = { ...mark.attrs };
+          } else {
+            marks[mark.type.name] = true;
+          }
+        });
+      }
+      // Also check $from.marks() as fallback
+      editor.state.selection.$from.marks().forEach(mark => {
+        if (mark.type.name === 'textStyle') {
+          marks.textStyle = { ...marks.textStyle, ...mark.attrs };
+        } else if (mark.type.name === 'highlight') {
+          marks.highlight = { ...mark.attrs };
+        } else {
+          marks[mark.type.name] = true;
+        }
+      });
+    }
 
     setCopiedMarks(marks);
     setFormatPainterActive(true);
@@ -333,7 +479,7 @@ export default function EditorToolbar({ editor }) {
       <ToolbarSeparator />
 
       {/* Link */}
-      <div style={{ position: 'relative', display: 'inline-flex' }}>
+      <div ref={linkButtonRef} style={{ position: 'relative', display: 'inline-flex' }}>
         <ToolbarButton
           icon={LinkIcon}
           label="Insert Link (Ctrl+K)"
@@ -341,53 +487,13 @@ export default function EditorToolbar({ editor }) {
           onClick={handleInsertLink}
         />
         {showLinkInput && (
-          <div style={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            background: 'var(--menu-bg)',
-            border: '1px solid var(--menu-border)',
-            borderRadius: 6,
-            padding: 8,
-            zIndex: 9999,
-            display: 'flex',
-            gap: 4,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-          }}>
-            <input
-              ref={linkInputRef}
-              type="text"
-              placeholder="https://..."
-              value={linkUrl}
-              onChange={e => setLinkUrl(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleInsertLink(); if (e.key === 'Escape') { setShowLinkInput(false); setLinkUrl(''); } }}
-              style={{
-                width: 220,
-                height: 26,
-                fontSize: 12,
-                padding: '0 8px',
-                border: '1px solid var(--border-color)',
-                borderRadius: 4,
-                background: 'var(--bg-primary)',
-                color: 'var(--text-primary)',
-              }}
-            />
-            <button
-              onClick={handleInsertLink}
-              style={{
-                height: 26,
-                padding: '0 12px',
-                fontSize: 12,
-                background: 'var(--accent-color)',
-                color: 'var(--accent-text)',
-                border: 'none',
-                borderRadius: 4,
-                cursor: 'pointer',
-              }}
-            >
-              OK
-            </button>
-          </div>
+          <LinkInputPopup
+            linkUrl={linkUrl}
+            setLinkUrl={setLinkUrl}
+            onSubmit={handleInsertLink}
+            onClose={() => { setShowLinkInput(false); setLinkUrl(''); }}
+            anchorRef={linkButtonRef}
+          />
         )}
       </div>
 
@@ -395,16 +501,17 @@ export default function EditorToolbar({ editor }) {
       <ToolbarButton icon={ImageIcon} label="Insert Image" onClick={handleInsertImage} />
 
       {/* Table */}
-      <div style={{ position: 'relative', display: 'inline-flex' }}>
+      <div ref={tableButtonRef} style={{ position: 'relative', display: 'inline-flex' }}>
         <ToolbarButton
           icon={TableIcon}
           label="Insert Table"
-          onClick={() => setShowTablePicker(!showTablePicker)}
+          onClick={() => setShowTablePicker(prev => !prev)}
         />
         {showTablePicker && (
           <TableGridPicker
             onInsert={handleInsertTable}
             onClose={() => setShowTablePicker(false)}
+            anchorRef={tableButtonRef}
           />
         )}
       </div>

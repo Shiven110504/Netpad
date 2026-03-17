@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core';
+import { arrayMove } from '@dnd-kit/sortable';
 import SplitPaneTree from './layout/SplitPaneTree';
 import GlobalToolbar from './editor/GlobalToolbar';
 import StatusBar from './StatusBar';
@@ -8,6 +10,7 @@ import KeywordRuleEditor from './highlighting/KeywordRuleEditor';
 import StickyNotes from './widgets/StickyNotes';
 import SubnetCalculator from './widgets/SubnetCalculator';
 import { useApp } from '../state/AppContext';
+import { findPaneById } from '../state/tabHelpers';
 
 export default function AppShell() {
   const { layout, dispatch, keywordRules, updateKeywordRules } = useApp();
@@ -18,6 +21,64 @@ export default function AppShell() {
   const [showKeywordRules, setShowKeywordRules] = useState(false);
   const [showStickyNotes, setShowStickyNotes] = useState(false);
   const [showSubnetCalc, setShowSubnetCalc] = useState(false);
+
+  // Drag and drop state
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+  const [activeDragTab, setActiveDragTab] = useState(null);
+
+  const handleDragStart = useCallback((event) => {
+    const { active } = event;
+    setActiveDragTab(active.data.current?.tab || null);
+  }, []);
+
+  const handleDragEnd = useCallback((event) => {
+    const { active, over } = event;
+    setActiveDragTab(null);
+
+    if (!over || !active) return;
+
+    const activeData = active.data.current;
+    const overData = over.data.current;
+
+    if (!activeData?.paneId) return;
+
+    const fromPaneId = activeData.paneId;
+
+    // Determine target pane
+    let toPaneId;
+    if (overData?.type === 'tab-bar') {
+      // Dropped on a tab bar area
+      toPaneId = overData.paneId;
+    } else if (overData?.paneId) {
+      // Dropped on another tab
+      toPaneId = overData.paneId;
+    } else {
+      return;
+    }
+
+    if (fromPaneId === toPaneId) {
+      // Same pane — reorder
+      const pane = findPaneById(layout.root, fromPaneId);
+      if (!pane) return;
+
+      const oldIndex = pane.tabs.findIndex(t => t.id === active.id);
+      const newIndex = pane.tabs.findIndex(t => t.id === over.id);
+
+      if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
+
+      const newTabs = arrayMove(pane.tabs, oldIndex, newIndex);
+      dispatch({ type: 'REORDER_TABS', paneId: fromPaneId, tabs: newTabs });
+    } else {
+      // Cross-pane — move tab
+      dispatch({ type: 'MOVE_TAB', fromPaneId, toPaneId, tabId: active.id });
+    }
+  }, [layout, dispatch]);
+
+  const handleDragCancel = useCallback(() => {
+    setActiveDragTab(null);
+  }, []);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -40,7 +101,7 @@ export default function AppShell() {
       // Ctrl+W — Close tab
       if (isMod && e.key === 'w') {
         e.preventDefault();
-        const pane = findActivePane(layout.root, layout.activePaneId);
+        const pane = findPaneById(layout.root, layout.activePaneId);
         if (pane) {
           dispatch({ type: 'CLOSE_TAB', paneId: pane.id, tabId: pane.activeTabId });
         }
@@ -67,7 +128,7 @@ export default function AppShell() {
       // Ctrl+Tab — Next tab
       if (isMod && e.key === 'Tab' && !e.shiftKey) {
         e.preventDefault();
-        const pane = findActivePane(layout.root, layout.activePaneId);
+        const pane = findPaneById(layout.root, layout.activePaneId);
         if (pane && pane.tabs.length > 1) {
           const idx = pane.tabs.findIndex(t => t.id === pane.activeTabId);
           const nextIdx = (idx + 1) % pane.tabs.length;
@@ -78,7 +139,7 @@ export default function AppShell() {
       // Ctrl+Shift+Tab — Previous tab
       if (isMod && e.key === 'Tab' && e.shiftKey) {
         e.preventDefault();
-        const pane = findActivePane(layout.root, layout.activePaneId);
+        const pane = findPaneById(layout.root, layout.activePaneId);
         if (pane && pane.tabs.length > 1) {
           const idx = pane.tabs.findIndex(t => t.id === pane.activeTabId);
           const prevIdx = (idx - 1 + pane.tabs.length) % pane.tabs.length;
@@ -100,7 +161,31 @@ export default function AppShell() {
       overflow: 'hidden',
     }}>
       <GlobalToolbar />
-      <SplitPaneTree />
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
+      >
+        <SplitPaneTree />
+        <DragOverlay>
+          {activeDragTab ? (
+            <div style={{
+              padding: '4px 12px',
+              background: 'var(--tab-active-bg)',
+              color: 'var(--tab-active-text)',
+              border: '1px solid var(--accent-color)',
+              borderRadius: 4,
+              fontSize: 12,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+              whiteSpace: 'nowrap',
+            }}>
+              {activeDragTab.title}
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
       <StatusBar
         onOpenSettings={() => setShowSettings(true)}
         onOpenConfigDiff={() => setShowConfigDiff(true)}
@@ -127,15 +212,4 @@ export default function AppShell() {
       {showSubnetCalc && <SubnetCalculator onClose={() => setShowSubnetCalc(false)} />}
     </div>
   );
-}
-
-function findActivePane(node, paneId) {
-  if (node.type === 'pane' && node.id === paneId) return node;
-  if (node.type === 'split') {
-    for (const child of node.children) {
-      const found = findActivePane(child, paneId);
-      if (found) return found;
-    }
-  }
-  return null;
 }

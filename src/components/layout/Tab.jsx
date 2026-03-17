@@ -3,7 +3,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { X } from 'lucide-react';
 
-export default function Tab({ tab, isActive, onActivate, onClose, onRename, onSplitRight, onSplitDown }) {
+export default function Tab({ tab, paneId, isActive, onActivate, onClose, onRename, onSplitRight, onSplitDown }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(tab.title);
   const [contextMenu, setContextMenu] = useState(null); // { x, y }
@@ -17,7 +17,7 @@ export default function Tab({ tab, isActive, onActivate, onClose, onRename, onSp
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: tab.id });
+  } = useSortable({ id: tab.id, data: { paneId, tab } });
 
   const style = {
     transform: CSS.Transform.toString(transform),

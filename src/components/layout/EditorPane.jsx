@@ -17,8 +17,152 @@ import TextStyle from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import FontFamily from '@tiptap/extension-font-family';
 import Highlight from '@tiptap/extension-highlight';
+import { Extension } from '@tiptap/core';
+import { TextSelection } from '@tiptap/pm/state';
+import { DOMParser as ProseMirrorDOMParser } from '@tiptap/pm/model';
 import { CiscoHighlight, ciscoKey } from '../cisco/CiscoHighlightPlugin';
 import { KeywordHighlight, keywordHighlightKey } from '../highlighting/KeywordHighlightPlugin';
+
+function looksLikeMarkdown(text) {
+  // Check for common markdown patterns
+  const mdPatterns = [
+    /^#{1,6}\s/m,           // Headers
+    /^\s*[-*+]\s/m,          // Unordered lists
+    /^\s*\d+\.\s/m,          // Ordered lists
+    /\*\*.+\*\*/,            // Bold
+    /\*.+\*/,                // Italic
+    /`[^`]+`/,               // Inline code
+    /```[\s\S]*```/,         // Code blocks
+    /^\s*>/m,                // Blockquotes
+    /\[.+\]\(.+\)/,         // Links
+    /^---$/m,                // Horizontal rule
+    /^\|.*\|$/m,             // Tables
+  ];
+
+  let matchCount = 0;
+  for (const pattern of mdPatterns) {
+    if (pattern.test(text)) matchCount++;
+  }
+
+  return matchCount >= 2; // At least 2 markdown patterns to be considered markdown
+}
+
+function simpleMarkdownToHtml(md) {
+  let html = md;
+
+  // Code blocks (must be before other processing)
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+
+  // Headers
+  html = html.replace(/^######\s+(.+)$/gm, '<h6>$1</h6>');
+  html = html.replace(/^#####\s+(.+)$/gm, '<h5>$1</h5>');
+  html = html.replace(/^####\s+(.+)$/gm, '<h4>$1</h4>');
+  html = html.replace(/^###\s+(.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^##\s+(.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^#\s+(.+)$/gm, '<h1>$1</h1>');
+
+  // Bold and italic
+  html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+  html = html.replace(/_(.+?)_/g, '<em>$1</em>');
+
+  // Strikethrough
+  html = html.replace(/~~(.+?)~~/g, '<s>$1</s>');
+
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Images (must be before links since ![alt](url) contains [alt](url))
+  html = html.replace(/!\[(.+?)\]\((.+?)\)/g, '<img src="$2" alt="$1" />');
+
+  // Links
+  html = html.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2">$1</a>');
+
+  // Horizontal rule
+  html = html.replace(/^---$/gm, '<hr>');
+  html = html.replace(/^\*\*\*$/gm, '<hr>');
+
+  // Blockquotes (process before lists)
+  html = html.replace(/^>\s+(.+)$/gm, '<blockquote><p>$1</p></blockquote>');
+
+  // Unordered lists
+  const lines = html.split('\n');
+  let result = [];
+  let inUl = false;
+  let inOl = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const ulMatch = line.match(/^\s*[-*+]\s+(.+)$/);
+    const olMatch = line.match(/^\s*\d+\.\s+(.+)$/);
+
+    if (ulMatch) {
+      if (!inUl) { result.push('<ul>'); inUl = true; }
+      if (inOl) { result.push('</ol>'); inOl = false; }
+      result.push(`<li>${ulMatch[1]}</li>`);
+    } else if (olMatch) {
+      if (!inOl) { result.push('<ol>'); inOl = true; }
+      if (inUl) { result.push('</ul>'); inUl = false; }
+      result.push(`<li>${olMatch[1]}</li>`);
+    } else {
+      if (inUl) { result.push('</ul>'); inUl = false; }
+      if (inOl) { result.push('</ol>'); inOl = false; }
+
+      // Wrap plain text lines in <p> tags (skip empty lines and already-tagged lines)
+      if (line.trim() && !line.startsWith('<')) {
+        result.push(`<p>${line}</p>`);
+      } else {
+        result.push(line);
+      }
+    }
+  }
+  if (inUl) result.push('</ul>');
+  if (inOl) result.push('</ol>');
+
+  return result.join('\n');
+}
+
+// Bug 5 fix: When nothing is selected, Ctrl+B/I/U selects the entire current line text first
+const SelectLineOnFormat = Extension.create({
+  name: 'selectLineOnFormat',
+
+  addKeyboardShortcuts() {
+    const selectLineAndToggle = (toggleCommand) => {
+      return ({ editor }) => {
+        const { state } = editor;
+        const { selection } = state;
+
+        if (selection.empty) {
+          const { $from } = selection;
+          const start = $from.start();
+          const end = $from.end();
+
+          if (end > start) {
+            editor.chain()
+              .command(({ tr }) => {
+                tr.setSelection(TextSelection.create(tr.doc, start, end));
+                return true;
+              })
+              [toggleCommand]()
+              .run();
+            return true;
+          }
+        }
+
+        // Default behavior when there's a selection
+        return editor.chain()[toggleCommand]().run();
+      };
+    };
+
+    return {
+      'Mod-b': selectLineAndToggle('toggleBold'),
+      'Mod-i': selectLineAndToggle('toggleItalic'),
+      'Mod-u': selectLineAndToggle('toggleUnderline'),
+    };
+  },
+});
 
 // Custom TextStyle with fontSize
 const CustomTextStyle = TextStyle.extend({
@@ -164,6 +308,7 @@ export default function EditorPane({ pane }) {
       Color,
       FontFamily,
       Highlight.configure({ multicolor: true }),
+      SelectLineOnFormat,
       CiscoHighlight.configure({ enabled: ciscoEnabled }),
       KeywordHighlight.configure({ rules: keywordRulesRef.current }),
     ],
@@ -191,6 +336,26 @@ export default function EditorPane({ pane }) {
             }
           }
         }
+
+        // Check if clipboard has HTML content - if so, let Tiptap handle it natively
+        const htmlContent = event.clipboardData?.getData('text/html');
+        if (htmlContent) {
+          return false; // Let Tiptap handle HTML paste
+        }
+
+        // Check if the pasted text looks like markdown
+        const text = event.clipboardData?.getData('text/plain');
+        if (text && looksLikeMarkdown(text)) {
+          event.preventDefault();
+          const html = simpleMarkdownToHtml(text);
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = html;
+          const parser = ProseMirrorDOMParser.fromSchema(view.state.schema);
+          const slice = parser.parseSlice(tempDiv);
+          view.dispatch(view.state.tr.replaceSelection(slice));
+          return true;
+        }
+
         return false;
       },
       handleClick: (view, pos, event) => {
