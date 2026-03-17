@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   Sun, Moon,
-  SplitSquareHorizontal, SplitSquareVertical, PanelRightClose,
   Settings, GitCompareArrows, Highlighter,
   StickyNote, Calculator,
 } from 'lucide-react';
@@ -18,21 +17,9 @@ export default function StatusBar({
   stickyNotesOpen,
   subnetCalcOpen,
 }) {
-  const { layout, dispatch, settings, toggleTheme } = useApp();
+  const { layout, settings, toggleTheme } = useApp();
 
   const paneCount = countPanes(layout.root);
-
-  const handleSplitRight = () => {
-    dispatch({ type: 'SPLIT_PANE', paneId: layout.activePaneId, direction: 'horizontal' });
-  };
-
-  const handleSplitDown = () => {
-    dispatch({ type: 'SPLIT_PANE', paneId: layout.activePaneId, direction: 'vertical' });
-  };
-
-  const handleClosePane = () => {
-    dispatch({ type: 'CLOSE_PANE', paneId: layout.activePaneId });
-  };
 
   return (
     <div style={{
@@ -56,7 +43,7 @@ export default function StatusBar({
         <WeatherWidget />
       </div>
 
-      {/* Right: tools + split + theme */}
+      {/* Right: tools + theme */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
         {/* Tool buttons */}
         <StatusBtn
@@ -79,29 +66,6 @@ export default function StatusBar({
         <StatusBtn onClick={onOpenKeywordRules} title="Keyword Highlighting">
           <Highlighter size={13} />
         </StatusBtn>
-
-        <Divider />
-
-        {/* Split controls */}
-        <StatusBtn
-          onClick={handleSplitRight}
-          title="Split Right (Ctrl+\)"
-          disabled={paneCount >= 4}
-        >
-          <SplitSquareHorizontal size={13} />
-        </StatusBtn>
-        <StatusBtn
-          onClick={handleSplitDown}
-          title="Split Down (Ctrl+Shift+\)"
-          disabled={paneCount >= 4}
-        >
-          <SplitSquareVertical size={13} />
-        </StatusBtn>
-        {paneCount > 1 && (
-          <StatusBtn onClick={handleClosePane} title="Close Pane">
-            <PanelRightClose size={13} />
-          </StatusBtn>
-        )}
 
         <Divider />
 

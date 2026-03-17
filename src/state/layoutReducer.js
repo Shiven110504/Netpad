@@ -1,4 +1,4 @@
-import { createTab, createPane, createSplit, countPanes } from './tabHelpers';
+import { createTab, createPane, createSplit, countPanes, findPaneById } from './tabHelpers';
 import { MAX_PANES } from '../utils/constants';
 
 function updateNode(node, nodeId, updater) {
@@ -49,11 +49,36 @@ export function layoutReducer(state, action) {
       const { paneId, direction } = action;
       if (countPanes(state.root) >= MAX_PANES) return state;
 
-      const newTab = createTab(state.root);
-      const newPane = createPane(newTab);
-      const newRoot = updateNode(state.root, paneId, (pane) => {
-        return createSplit(direction, [pane, newPane]);
-      });
+      const currentPane = findPaneById(state.root, paneId);
+      let newRoot;
+
+      if (currentPane && currentPane.tabs.length >= 2) {
+        // Move the active tab into the new pane
+        const activeTab = currentPane.tabs.find(t => t.id === currentPane.activeTabId);
+        const remainingTabs = currentPane.tabs.filter(t => t.id !== currentPane.activeTabId);
+        const newActiveTabId = remainingTabs[remainingTabs.length - 1]?.id;
+
+        const newPane = {
+          id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2),
+          type: 'pane',
+          tabs: [activeTab],
+          activeTabId: activeTab.id,
+        };
+
+        // First update the source pane to remove the moved tab
+        newRoot = updateNode(state.root, paneId, (pane) => ({
+          ...pane,
+          tabs: remainingTabs,
+          activeTabId: newActiveTabId,
+        }));
+        // Then wrap the updated source pane in a split with the new pane
+        newRoot = updateNode(newRoot, paneId, (pane) => createSplit(direction, [pane, newPane]));
+      } else {
+        // Only 1 tab — create a blank tab in the new pane (existing behaviour)
+        const newTab = createTab(state.root);
+        const newPane = createPane(newTab);
+        newRoot = updateNode(state.root, paneId, (pane) => createSplit(direction, [pane, newPane]));
+      }
 
       return { ...state, root: newRoot };
     }
@@ -97,25 +122,48 @@ export function layoutReducer(state, action) {
 
     case 'CLOSE_TAB': {
       const { paneId, tabId } = action;
+      const pane = findPaneById(state.root, paneId);
+      if (!pane) return state;
+
+      const newTabs = pane.tabs.filter(t => t.id !== tabId);
+
+      if (newTabs.length === 0) {
+        if (countPanes(state.root) <= 1) {
+          // Only pane — create a new blank tab (keep the pane alive)
+          const rootWithoutTab = updateNode(state.root, paneId, (p) => ({
+            ...p,
+            tabs: [],
+          }));
+          const newTab = createTab(rootWithoutTab);
+          return {
+            ...state,
+            root: updateNode(state.root, paneId, (p) => ({
+              ...p,
+              tabs: [newTab],
+              activeTabId: newTab.id,
+            })),
+          };
+        } else {
+          // Other panes exist — close this pane automatically
+          const newRoot = removePane(state.root, paneId);
+          const newActivePaneId = state.activePaneId === paneId
+            ? findFirstPane(newRoot)?.id || state.activePaneId
+            : state.activePaneId;
+          return { ...state, root: newRoot, activePaneId: newActivePaneId };
+        }
+      }
+
+      const newActiveTabId = pane.activeTabId === tabId
+        ? newTabs[Math.min(pane.tabs.findIndex(t => t.id === tabId), newTabs.length - 1)].id
+        : pane.activeTabId;
+
       return {
         ...state,
-        root: updateNode(state.root, paneId, (pane) => {
-          const newTabs = pane.tabs.filter(t => t.id !== tabId);
-          if (newTabs.length === 0) {
-            // Build a temporary root with this tab removed so the number scan
-            // doesn't count the tab we're closing
-            const rootWithoutTab = updateNode(state.root, paneId, (p) => ({
-              ...p,
-              tabs: [],
-            }));
-            const newTab = createTab(rootWithoutTab);
-            return { ...pane, tabs: [newTab], activeTabId: newTab.id };
-          }
-          const newActiveTabId = pane.activeTabId === tabId
-            ? newTabs[Math.min(pane.tabs.findIndex(t => t.id === tabId), newTabs.length - 1)].id
-            : pane.activeTabId;
-          return { ...pane, tabs: newTabs, activeTabId: newActiveTabId };
-        }),
+        root: updateNode(state.root, paneId, (p) => ({
+          ...p,
+          tabs: newTabs,
+          activeTabId: newActiveTabId,
+        })),
       };
     }
 
