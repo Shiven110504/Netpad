@@ -4,9 +4,10 @@ import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortabl
 import { Plus } from 'lucide-react';
 import Tab from './Tab';
 import { useApp } from '../../state/AppContext';
+import { extractPlainText } from '../../utils/extractPlainText';
 
 export default function TabBar({ pane }) {
-  const { dispatch } = useApp();
+  const { dispatch, setCompareSlotA, setCompareSlotB, openConfigDiffRef } = useApp();
 
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({
     id: `pane-drop-${pane.id}`,
@@ -15,6 +16,14 @@ export default function TabBar({ pane }) {
 
   const handleAddTab = () => {
     dispatch({ type: 'ADD_TAB', paneId: pane.id });
+  };
+
+  const fillSlot = (tab, setter) => {
+    setter({
+      tabId: tab.id,
+      title: tab.title,
+      text: extractPlainText(tab.content),
+    });
   };
 
   return (
@@ -48,6 +57,9 @@ export default function TabBar({ pane }) {
               onRename={(title) => dispatch({ type: 'UPDATE_TAB_TITLE', paneId: pane.id, tabId: tab.id, title })}
               onSplitRight={() => dispatch({ type: 'SPLIT_PANE', paneId: pane.id, direction: 'horizontal' })}
               onSplitDown={() => dispatch({ type: 'SPLIT_PANE', paneId: pane.id, direction: 'vertical' })}
+              onCompareA={() => { fillSlot(tab, setCompareSlotA); openConfigDiffRef.current?.(); }}
+              onCompareB={() => { fillSlot(tab, setCompareSlotB); openConfigDiffRef.current?.(); }}
+              onOpenCompare={() => openConfigDiffRef.current?.()}
             />
           ))}
         </SortableContext>

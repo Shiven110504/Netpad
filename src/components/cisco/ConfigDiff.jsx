@@ -1,15 +1,69 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
+import { useDroppable } from '@dnd-kit/core';
 import { X } from 'lucide-react';
 import { diffLines } from 'diff';
+import { useApp } from '../../state/AppContext';
+
+function CompareDropZone({ id, children }) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        borderRight: '1px solid var(--border-color)',
+        outline: isOver ? '2px solid var(--accent-color)' : 'none',
+        outlineOffset: -2,
+        transition: 'outline 0.15s',
+      }}
+    >
+      {children}
+    </div>
+  );
+}
 
 export default function ConfigDiff({ onClose }) {
-  const [config1, setConfig1] = useState('');
-  const [config2, setConfig2] = useState('');
+  const { compareSlotA, setCompareSlotA, compareSlotB, setCompareSlotB } = useApp();
+
+  // Track which slot was last applied, and local edited text.
+  // When slot changes, we reset to slot text. Otherwise user edits are preserved.
+  const [state1, setState1] = useState({ slotId: null, text: '' });
+  const [state2, setState2] = useState({ slotId: null, text: '' });
+
+  const slotAId = compareSlotA?.tabId ?? null;
+  const slotBId = compareSlotB?.tabId ?? null;
+
+  // Derive config, resetting when slot changes (setState during render is a supported React pattern)
+  let config1 = state1.text;
+  if (state1.slotId !== slotAId && compareSlotA) {
+    config1 = compareSlotA.text;
+    setState1({ slotId: slotAId, text: compareSlotA.text });
+  }
+  let config2 = state2.text;
+  if (state2.slotId !== slotBId && compareSlotB) {
+    config2 = compareSlotB.text;
+    setState2({ slotId: slotBId, text: compareSlotB.text });
+  }
+
+  const handleChange1 = useCallback((e) => setState1(prev => ({ ...prev, text: e.target.value })), []);
+  const handleChange2 = useCallback((e) => setState2(prev => ({ ...prev, text: e.target.value })), []);
 
   const diff = useMemo(() => {
     if (!config1 && !config2) return [];
     return diffLines(config1, config2);
   }, [config1, config2]);
+
+  const clearSlotA = () => {
+    setCompareSlotA(null);
+    setState1({ slotId: null, text: '' });
+  };
+
+  const clearSlotB = () => {
+    setCompareSlotB(null);
+    setState2({ slotId: null, text: '' });
+  };
 
   return (
     <div style={{
@@ -33,29 +87,51 @@ export default function ConfigDiff({ onClose }) {
         </div>
 
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-          {/* Input panes */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border-color)' }}>
-            <div style={paneLabelStyle}>Config A (Before)</div>
+          {/* Config A — droppable */}
+          <CompareDropZone id="compare-drop-a">
+            <div style={paneLabelStyle}>
+              <span style={{ flex: 1 }}>
+                Config A (Before)
+                {compareSlotA && <span style={{ fontWeight: 400, marginLeft: 6, opacity: 0.7 }}>— {compareSlotA.title}</span>}
+              </span>
+              {(config1 || compareSlotA) && (
+                <button onClick={clearSlotA} style={clearBtnStyle} title="Clear">
+                  <X size={12} />
+                </button>
+              )}
+            </div>
             <textarea
               value={config1}
-              onChange={e => setConfig1(e.target.value)}
-              placeholder="Paste first config here..."
+              onChange={handleChange1}
+              placeholder="Paste first config here, or drag a tab..."
               style={textareaStyle}
             />
-          </div>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border-color)' }}>
-            <div style={paneLabelStyle}>Config B (After)</div>
+          </CompareDropZone>
+
+          {/* Config B — droppable */}
+          <CompareDropZone id="compare-drop-b">
+            <div style={paneLabelStyle}>
+              <span style={{ flex: 1 }}>
+                Config B (After)
+                {compareSlotB && <span style={{ fontWeight: 400, marginLeft: 6, opacity: 0.7 }}>— {compareSlotB.title}</span>}
+              </span>
+              {(config2 || compareSlotB) && (
+                <button onClick={clearSlotB} style={clearBtnStyle} title="Clear">
+                  <X size={12} />
+                </button>
+              )}
+            </div>
             <textarea
               value={config2}
-              onChange={e => setConfig2(e.target.value)}
-              placeholder="Paste second config here..."
+              onChange={handleChange2}
+              placeholder="Paste second config here, or drag a tab..."
               style={textareaStyle}
             />
-          </div>
+          </CompareDropZone>
 
           {/* Diff output */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <div style={paneLabelStyle}>Diff Result</div>
+            <div style={paneLabelStyle}><span>Diff Result</span></div>
             <div style={{
               flex: 1, overflowY: 'auto', fontFamily: 'monospace', fontSize: 12, lineHeight: 1.5,
               padding: 8, background: 'var(--editor-bg)',
@@ -76,7 +152,7 @@ export default function ConfigDiff({ onClose }) {
               })}
               {!config1 && !config2 && (
                 <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-tertiary)' }}>
-                  Paste configs in the panels to see differences
+                  Paste configs in the panels to see differences, or drag tabs here
                 </div>
               )}
             </div>
@@ -93,7 +169,16 @@ const closeBtnStyle = {
   background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer',
 };
 
+const clearBtnStyle = {
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  width: 18, height: 18, border: 'none', borderRadius: 3,
+  background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer',
+  flexShrink: 0,
+};
+
 const paneLabelStyle = {
+  display: 'flex',
+  alignItems: 'center',
   padding: '6px 12px',
   fontSize: 11,
   fontWeight: 600,

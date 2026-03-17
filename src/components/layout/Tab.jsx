@@ -3,7 +3,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { X } from 'lucide-react';
 
-export default function Tab({ tab, paneId, isActive, onActivate, onClose, onRename, onSplitRight, onSplitDown }) {
+export default function Tab({ tab, paneId, isActive, onActivate, onClose, onRename, onSplitRight, onSplitDown, onCompareA, onCompareB, onOpenCompare }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(tab.title);
   const [contextMenu, setContextMenu] = useState(null); // { x, y }
@@ -73,6 +73,24 @@ export default function Tab({ tab, paneId, isActive, onActivate, onClose, onRena
     e.stopPropagation();
     setContextMenu(null);
     onSplitDown?.();
+  };
+
+  const handleCompareA = (e) => {
+    e.stopPropagation();
+    setContextMenu(null);
+    onCompareA?.();
+  };
+
+  const handleCompareB = (e) => {
+    e.stopPropagation();
+    setContextMenu(null);
+    onCompareB?.();
+  };
+
+  const handleOpenCompare = (e) => {
+    e.stopPropagation();
+    setContextMenu(null);
+    onOpenCompare?.();
   };
 
   return (
@@ -172,13 +190,17 @@ export default function Tab({ tab, paneId, isActive, onActivate, onClose, onRena
             border: '1px solid var(--tab-border, #444)',
             borderRadius: 4,
             boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-            minWidth: 150,
+            minWidth: 200,
             overflow: 'hidden',
             fontSize: 13,
           }}
         >
           <ContextMenuItem onClick={handleSplitRight} label="Split Right" shortcut={'Ctrl+\\'} />
           <ContextMenuItem onClick={handleSplitDown} label="Split Down" shortcut={'Ctrl+Shift+\\'} />
+          <div style={{ height: 1, background: 'var(--tab-border, #444)', margin: '2px 0' }} />
+          <ContextMenuItem onClick={handleCompareA} label="Add to Compare Diff (A)" />
+          <ContextMenuItem onClick={handleCompareB} label="Add to Compare Diff (B)" />
+          <ContextMenuItem onClick={handleOpenCompare} label="Open Compare Diff" />
         </div>
       )}
     </>
