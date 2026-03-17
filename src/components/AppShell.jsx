@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import SplitPaneTree from './layout/SplitPaneTree';
+import GlobalToolbar from './editor/GlobalToolbar';
 import StatusBar from './StatusBar';
 import SettingsModal from './settings/SettingsModal';
 import ConfigDiff from './cisco/ConfigDiff';
@@ -107,6 +108,7 @@ export default function AppShell() {
       width: '100vw',
       overflow: 'hidden',
     }}>
+      <GlobalToolbar />
       <SplitPaneTree />
       <StatusBar
         onOpenSettings={() => setShowSettings(true)}

@@ -19,7 +19,28 @@ export function AppProvider({ children }) {
     return initialLayout();
   });
 
-  // Theme management
+  const editorsRef = useRef(new Map());
+  const [activeEditor, setActiveEditor] = useState(null);
+
+  const registerEditor = useCallback((paneId, editor) => {
+    editorsRef.current.set(paneId, editor);
+    setActiveEditor(prev => {
+      if (paneId === layout.activePaneId) return editor;
+      return prev;
+    });
+  }, [layout.activePaneId]);
+
+  const unregisterEditor = useCallback((paneId) => {
+    const removed = editorsRef.current.get(paneId);
+    editorsRef.current.delete(paneId);
+    setActiveEditor(prev => (prev === removed ? null : prev));
+  }, []);
+
+  useEffect(() => {
+    const editor = editorsRef.current.get(layout.activePaneId);
+    setActiveEditor(editor || null);
+  }, [layout.activePaneId]);
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', settings.theme);
   }, [settings.theme]);
@@ -35,7 +56,6 @@ export function AppProvider({ children }) {
     setSettings(prev => ({ ...prev, ...updates }));
   }, []);
 
-  // Debounced auto-save
   const saveTimeoutRef = useRef(null);
 
   useEffect(() => {
@@ -49,7 +69,6 @@ export function AppProvider({ children }) {
     };
   }, [layout, settings]);
 
-  // Save on beforeunload
   useEffect(() => {
     const handleBeforeUnload = () => {
       saveState(layout, settings);
@@ -65,6 +84,9 @@ export function AppProvider({ children }) {
     setSettings,
     updateSettings,
     toggleTheme,
+    activeEditor,
+    registerEditor,
+    unregisterEditor,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

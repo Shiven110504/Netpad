@@ -1,6 +1,5 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import TabBar from './TabBar';
-import EditorToolbar from '../editor/EditorToolbar';
 import FindReplace from '../editor/FindReplace';
 import MarkdownPreview from '../markdown/MarkdownPreview';
 import { useApp } from '../../state/AppContext';
@@ -22,8 +21,6 @@ import Highlight from '@tiptap/extension-highlight';
 import { CiscoHighlight } from '../cisco/CiscoHighlightPlugin';
 import { detectCiscoConfig } from '../cisco/CiscoDetector';
 import { Panel, Group, Separator } from 'react-resizable-panels';
-import { FileCode, Eye, Download } from 'lucide-react';
-import { exportAsHTML, exportAsText, exportAsMarkdown } from '../../utils/exportHelpers';
 
 // Custom TextStyle with fontSize
 const CustomTextStyle = TextStyle.extend({
@@ -43,13 +40,12 @@ const CustomTextStyle = TextStyle.extend({
 });
 
 export default function EditorPane({ pane }) {
-  const { dispatch, layout, settings } = useApp();
+  const { dispatch, layout, settings, registerEditor, unregisterEditor } = useApp();
   const activeTab = pane.tabs.find(t => t.id === pane.activeTabId) || pane.tabs[0];
   const contentRef = useRef(activeTab?.content);
   const isActive = layout.activePaneId === pane.id;
-  const [findMode, setFindMode] = useState(null); // null | 'find' | 'replace'
+  const [findMode, setFindMode] = useState(null);
   const [markdownText, setMarkdownText] = useState('');
-  const [showExportMenu, setShowExportMenu] = useState(false);
   const ciscoDetectTimer = useRef(null);
 
   const editor = useEditor({
@@ -145,6 +141,13 @@ export default function EditorPane({ pane }) {
     },
   }, [activeTab?.id]);
 
+  useEffect(() => {
+    if (editor) {
+      registerEditor(pane.id, editor);
+    }
+    return () => unregisterEditor(pane.id);
+  }, [editor, pane.id, registerEditor, unregisterEditor]);
+
   // Sync line numbers setting
   useEffect(() => {
     if (editor) {
@@ -190,15 +193,6 @@ export default function EditorPane({ pane }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isActive, pane.id, activeTab, dispatch]);
 
-  const toggleMarkdown = () => {
-    dispatch({
-      type: 'SET_TAB_MARKDOWN',
-      paneId: pane.id,
-      tabId: activeTab.id,
-      isMarkdown: !activeTab?.isMarkdown,
-    });
-  };
-
   const editorContent = (
     <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
       {findMode && (
@@ -216,114 +210,6 @@ export default function EditorPane({ pane }) {
       border: isActive ? '1px solid var(--accent-color)' : '1px solid transparent',
     }}>
       <TabBar pane={pane} />
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        background: 'var(--toolbar-bg)',
-        borderBottom: '1px solid var(--toolbar-border)',
-      }}>
-        <div style={{ flex: 1, overflow: 'hidden', minWidth: 0 }}>
-          <EditorToolbar editor={editor} />
-        </div>
-        {/* Markdown toggle */}
-        <button
-          onClick={toggleMarkdown}
-          title="Toggle Markdown Preview (Ctrl+Shift+M)"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-            padding: '4px 8px',
-            margin: '0 4px',
-            border: 'none',
-            borderRadius: 4,
-            background: activeTab?.isMarkdown ? 'var(--accent-color)' : 'transparent',
-            color: activeTab?.isMarkdown ? '#fff' : 'var(--text-secondary)',
-            cursor: 'pointer',
-            fontSize: 11,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <Eye size={13} />
-          MD
-        </button>
-        {/* Export menu */}
-        <div style={{ position: 'relative', flexShrink: 0 }}>
-          <button
-            onClick={() => setShowExportMenu(!showExportMenu)}
-            title="Export"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              padding: '4px 6px',
-              margin: '0 2px',
-              border: 'none',
-              borderRadius: 4,
-              background: showExportMenu ? 'var(--toolbar-btn-active)' : 'transparent',
-              color: 'var(--text-secondary)',
-              cursor: 'pointer',
-              fontSize: 11,
-            }}
-          >
-            <Download size={13} />
-          </button>
-          {showExportMenu && (
-            <div style={{
-              position: 'absolute',
-              top: '100%',
-              right: 0,
-              background: 'var(--menu-bg)',
-              border: '1px solid var(--menu-border)',
-              borderRadius: 6,
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-              zIndex: 1000,
-              minWidth: 140,
-              padding: 4,
-            }}>
-              {[
-                ['HTML', () => exportAsHTML(editor, activeTab?.title || 'document')],
-                ['Plain Text', () => exportAsText(editor, activeTab?.title || 'document')],
-                ['Markdown', () => exportAsMarkdown(editor, activeTab?.title || 'document')],
-              ].map(([label, action]) => (
-                <button
-                  key={label}
-                  onClick={() => { action(); setShowExportMenu(false); }}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    padding: '6px 12px',
-                    border: 'none',
-                    background: 'transparent',
-                    color: 'var(--menu-text)',
-                    cursor: 'pointer',
-                    fontSize: 12,
-                    textAlign: 'left',
-                    borderRadius: 4,
-                  }}
-                  onMouseEnter={e => e.target.style.background = 'var(--menu-hover)'}
-                  onMouseLeave={e => e.target.style.background = 'transparent'}
-                >
-                  Export as {label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        {/* Cisco indicator */}
-        {activeTab?.isCiscoConfig && (
-          <span style={{
-            padding: '2px 6px',
-            margin: '0 4px',
-            borderRadius: 4,
-            background: 'var(--success)',
-            color: '#fff',
-            fontSize: 10,
-            fontWeight: 600,
-          }}>
-            CISCO
-          </span>
-        )}
-      </div>
 
       {/* Content area: editor or editor+preview */}
       {activeTab?.isMarkdown ? (
