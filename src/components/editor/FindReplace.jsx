@@ -96,22 +96,33 @@ export default function FindReplace({ editor, mode, onClose }) {
 
   const replaceAll = () => {
     if (!editor || matches.length === 0) return;
-    // Replace from end to start to preserve positions
-    const text = editor.state.doc.textContent;
-    let newText = text;
-    try {
-      let regex;
-      if (useRegex) {
-        regex = new RegExp(searchTerm, caseSensitive ? 'g' : 'gi');
-      } else {
-        const escaped = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        regex = new RegExp(escaped, caseSensitive ? 'g' : 'gi');
+
+    // Build a list of {from, to} positions in the actual ProseMirror doc
+    const positions = [];
+    let textOffset = 0;
+    editor.state.doc.descendants((node, pos) => {
+      if (!node.isText) return;
+      const nodeText = node.text;
+      // For each match that falls within this text node, compute the doc position
+      for (const m of matches) {
+        if (m.from >= textOffset && m.from < textOffset + nodeText.length) {
+          const docFrom = pos + (m.from - textOffset);
+          const docTo = docFrom + m.text.length;
+          positions.push({ docFrom, docTo });
+        }
       }
-      newText = text.replace(regex, replaceTerm);
-    } catch (e) {
-      return;
+      textOffset += nodeText.length;
+    });
+
+    if (positions.length === 0) return;
+
+    // Apply replacements from end to start so earlier positions stay valid
+    const { tr } = editor.state;
+    for (let i = positions.length - 1; i >= 0; i--) {
+      const { docFrom, docTo } = positions[i];
+      tr.insertText(replaceTerm, docFrom, docTo);
     }
-    editor.commands.setContent(newText);
+    editor.view.dispatch(tr);
     setMatches([]);
   };
 

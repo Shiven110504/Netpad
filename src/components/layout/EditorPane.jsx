@@ -397,9 +397,28 @@ export default function EditorPane({ pane }) {
       const el = editor.view?.dom;
       if (el) {
         el.classList.toggle('show-line-numbers', settings.showLineNumbers);
+
+        // Font family
+        if (settings.fontFamily) {
+          el.style.fontFamily = settings.fontFamily;
+        }
+
+        // Font size
+        if (settings.fontSize) {
+          el.style.fontSize = `${settings.fontSize}px`;
+        }
+
+        // Word wrap
+        if (settings.wordWrap === false) {
+          el.style.whiteSpace = 'pre';
+          el.style.overflowX = 'auto';
+        } else {
+          el.style.whiteSpace = '';
+          el.style.overflowX = '';
+        }
       }
     }
-  }, [editor, settings.showLineNumbers]);
+  }, [editor, settings.showLineNumbers, settings.fontFamily, settings.fontSize, settings.wordWrap]);
 
   // Live-update Cisco highlighting when setting changes
   useEffect(() => {
