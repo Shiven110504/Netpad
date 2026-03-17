@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, useState, useEffect, useCallback, useRef } from 'react';
 import { layoutReducer, initialLayout } from './layoutReducer';
-import { loadState, saveState } from './persistence';
+import { loadState, saveState, loadKeywordRules, saveKeywordRules } from './persistence';
 import { DEFAULT_SETTINGS } from '../utils/constants';
 
 const AppContext = createContext(null);
@@ -41,6 +41,12 @@ export function AppProvider({ children }) {
     setActiveEditor(editor || null);
   }, [layout.activePaneId]);
 
+  const [keywordRules, setKeywordRules] = useState(() => loadKeywordRules());
+
+  const updateKeywordRules = useCallback((newRules) => {
+    setKeywordRules(newRules);
+    saveKeywordRules(newRules);
+  }, []);
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', settings.theme);
   }, [settings.theme]);
@@ -87,6 +93,8 @@ export function AppProvider({ children }) {
     activeEditor,
     registerEditor,
     unregisterEditor,
+    keywordRules,
+    updateKeywordRules,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

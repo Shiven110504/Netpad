@@ -19,6 +19,7 @@ import Color from '@tiptap/extension-color';
 import FontFamily from '@tiptap/extension-font-family';
 import Highlight from '@tiptap/extension-highlight';
 import { CiscoHighlight } from '../cisco/CiscoHighlightPlugin';
+import { KeywordHighlight, keywordHighlightKey } from '../highlighting/KeywordHighlightPlugin';
 import { detectCiscoConfig } from '../cisco/CiscoDetector';
 import { Panel, Group, Separator } from 'react-resizable-panels';
 
@@ -40,13 +41,15 @@ const CustomTextStyle = TextStyle.extend({
 });
 
 export default function EditorPane({ pane }) {
-  const { dispatch, layout, settings, registerEditor, unregisterEditor } = useApp();
+  const { dispatch, layout, settings, registerEditor, unregisterEditor, keywordRules } = useApp();
   const activeTab = pane.tabs.find(t => t.id === pane.activeTabId) || pane.tabs[0];
   const contentRef = useRef(activeTab?.content);
   const isActive = layout.activePaneId === pane.id;
   const [findMode, setFindMode] = useState(null);
   const [markdownText, setMarkdownText] = useState('');
   const ciscoDetectTimer = useRef(null);
+  const keywordRulesRef = useRef(keywordRules);
+  keywordRulesRef.current = keywordRules;
 
   const editor = useEditor({
     extensions: [
@@ -68,6 +71,7 @@ export default function EditorPane({ pane }) {
       FontFamily,
       Highlight.configure({ multicolor: true }),
       CiscoHighlight.configure({ enabled: activeTab?.isCiscoConfig || false }),
+      KeywordHighlight.configure({ rules: keywordRulesRef.current }),
     ],
     content: activeTab?.content || '',
     editorProps: {
@@ -164,6 +168,18 @@ export default function EditorPane({ pane }) {
       setMarkdownText(editor.getText());
     }
   }, [editor, activeTab?.isMarkdown]);
+
+  // Live-update keyword highlight decorations when rules change
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    const ext = editor.extensionManager.extensions.find(e => e.name === 'keywordHighlight');
+    if (ext) {
+      ext.options.rules = keywordRules;
+    }
+    const { tr } = editor.state;
+    tr.setMeta(keywordHighlightKey, true);
+    editor.view.dispatch(tr);
+  }, [editor, keywordRules]);
 
   // Keyboard shortcuts for this pane
   useEffect(() => {
