@@ -21,9 +21,9 @@ describe('tabHelpers', () => {
       expect(tab.isMarkdown).toBe(false);
     });
 
-    it('defaults isCiscoConfig to false', () => {
+    it('defaults isCiscoConfig to true (Cisco highlighting on by default)', () => {
       const tab = createTab(null);
-      expect(tab.isCiscoConfig).toBe(false);
+      expect(tab.isCiscoConfig).toBe(true);
     });
 
     it('titles first tab as Untitled 1 when no root', () => {

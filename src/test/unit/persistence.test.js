@@ -73,15 +73,19 @@ describe('persistence', () => {
       expect(loaded).toEqual(rules);
     });
 
-    it('returns empty array when nothing is saved', () => {
+    it('returns default rules when nothing is saved', () => {
       const loaded = loadKeywordRules();
-      expect(loaded).toEqual([]);
+      // Default Cisco rules are loaded from net_os_cli_rules.json when nothing is saved
+      expect(Array.isArray(loaded)).toBe(true);
+      expect(loaded.length).toBeGreaterThan(0);
     });
 
-    it('handles corrupted keyword rules JSON gracefully', () => {
+    it('handles corrupted keyword rules JSON gracefully (returns defaults)', () => {
       localStorageMock.setItem(STORAGE_KEYS.KEYWORDS, '{{INVALID}}');
       const loaded = loadKeywordRules();
-      expect(loaded).toEqual([]);
+      // On corrupt data, returns default rules (not empty array)
+      expect(Array.isArray(loaded)).toBe(true);
+      expect(loaded.length).toBeGreaterThan(0);
     });
 
     it('saves and loads an empty rules array', () => {
