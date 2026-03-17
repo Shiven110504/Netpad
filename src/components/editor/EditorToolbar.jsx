@@ -110,6 +110,32 @@ export default function EditorToolbar({ editor }) {
   const [formatPainterActive, setFormatPainterActive] = useState(false);
   const [copiedMarks, setCopiedMarks] = useState(null);
 
+  // Apply format painter on selection change — must be before any early return
+  useEffect(() => {
+    if (!formatPainterActive || !copiedMarks || !editor) return;
+
+    const handleSelectionUpdate = () => {
+      const { empty } = editor.state.selection;
+      if (!empty && formatPainterActive) {
+        const chain = editor.chain().focus();
+        chain.unsetAllMarks();
+        if (copiedMarks.bold) chain.setBold();
+        if (copiedMarks.italic) chain.setItalic();
+        if (copiedMarks.underline) chain.setUnderline();
+        if (copiedMarks.strike) chain.setStrike();
+        if (copiedMarks.textStyle?.color) chain.setColor(copiedMarks.textStyle.color);
+        if (copiedMarks.textStyle?.fontSize) chain.setMark('textStyle', { fontSize: copiedMarks.textStyle.fontSize });
+        if (copiedMarks.textStyle?.fontFamily) chain.setFontFamily(copiedMarks.textStyle.fontFamily);
+        chain.run();
+        setFormatPainterActive(false);
+        setCopiedMarks(null);
+      }
+    };
+
+    editor.on('selectionUpdate', handleSelectionUpdate);
+    return () => editor.off('selectionUpdate', handleSelectionUpdate);
+  }, [formatPainterActive, copiedMarks, editor]);
+
   if (!editor) return null;
 
   const handleInsertLink = () => {
@@ -174,38 +200,6 @@ export default function EditorToolbar({ editor }) {
     setCopiedMarks(marks);
     setFormatPainterActive(true);
   };
-
-  // Apply format painter on selection change
-  useEffect(() => {
-    if (!formatPainterActive || !copiedMarks || !editor) return;
-
-    const handleSelectionUpdate = () => {
-      const { from, to, empty } = editor.state.selection;
-      if (!empty && formatPainterActive) {
-        // Apply marks to selection
-        const chain = editor.chain().focus();
-
-        // First clear existing marks
-        chain.unsetAllMarks();
-
-        // Apply stored marks
-        if (copiedMarks.bold) chain.setBold();
-        if (copiedMarks.italic) chain.setItalic();
-        if (copiedMarks.underline) chain.setUnderline();
-        if (copiedMarks.strike) chain.setStrike();
-        if (copiedMarks.textStyle?.color) chain.setColor(copiedMarks.textStyle.color);
-        if (copiedMarks.textStyle?.fontSize) chain.setMark('textStyle', { fontSize: copiedMarks.textStyle.fontSize });
-        if (copiedMarks.textStyle?.fontFamily) chain.setFontFamily(copiedMarks.textStyle.fontFamily);
-
-        chain.run();
-        setFormatPainterActive(false);
-        setCopiedMarks(null);
-      }
-    };
-
-    editor.on('selectionUpdate', handleSelectionUpdate);
-    return () => editor.off('selectionUpdate', handleSelectionUpdate);
-  }, [formatPainterActive, copiedMarks, editor]);
 
   return (
     <div style={{
