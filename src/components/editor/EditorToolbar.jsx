@@ -149,10 +149,12 @@ export default function EditorToolbar({ editor }) {
       alignItems: 'center',
       padding: '4px 8px',
       background: 'var(--toolbar-bg)',
-      borderBottom: '1px solid var(--toolbar-border)',
       gap: 2,
-      flexWrap: 'wrap',
+      flexWrap: 'nowrap',
       minHeight: 36,
+      overflowX: 'auto',
+      overflowY: 'hidden',
+      scrollbarWidth: 'none',
     }}>
       {/* Undo/Redo */}
       <ToolbarButton icon={Undo2} label="Undo (Ctrl+Z)" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} />
