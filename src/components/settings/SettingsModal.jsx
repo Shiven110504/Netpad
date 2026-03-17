@@ -11,7 +11,6 @@ const SHORTCUTS = [
   ['Ctrl+U', 'Underline'],
   ['Ctrl+K', 'Insert hyperlink'],
   ['Ctrl+Shift+V', 'Paste as plain text'],
-  ['Ctrl+Shift+M', 'Toggle Markdown preview'],
   ['Ctrl+\\', 'Split pane right'],
   ['Ctrl+Shift+\\', 'Split pane down'],
   ['Ctrl+,', 'Open Settings'],
@@ -235,6 +234,12 @@ export default function SettingsModal({ onClose }) {
                 <ToggleSwitch
                   checked={settings.wordWrap}
                   onChange={v => updateSettings({ wordWrap: v })}
+                />
+              </SettingRow>
+              <SettingRow label="Cisco Config Highlighting">
+                <ToggleSwitch
+                  checked={settings.ciscoHighlighting !== false}
+                  onChange={v => updateSettings({ ciscoHighlighting: v })}
                 />
               </SettingRow>
             </div>

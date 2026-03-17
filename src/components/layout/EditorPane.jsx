@@ -1,7 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import TabBar from './TabBar';
 import FindReplace from '../editor/FindReplace';
-import MarkdownPreview from '../markdown/MarkdownPreview';
 import { useApp } from '../../state/AppContext';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -18,9 +17,8 @@ import TextStyle from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import FontFamily from '@tiptap/extension-font-family';
 import Highlight from '@tiptap/extension-highlight';
-import { CiscoHighlight } from '../cisco/CiscoHighlightPlugin';
+import { CiscoHighlight, ciscoKey } from '../cisco/CiscoHighlightPlugin';
 import { KeywordHighlight, keywordHighlightKey } from '../highlighting/KeywordHighlightPlugin';
-import { detectCiscoConfig } from '../cisco/CiscoDetector';
 
 // Custom TextStyle with fontSize
 const CustomTextStyle = TextStyle.extend({
@@ -141,11 +139,11 @@ export default function EditorPane({ pane }) {
   const contentRef = useRef(activeTab?.content);
   const isActive = layout.activePaneId === pane.id;
   const [findMode, setFindMode] = useState(null);
-  const [markdownText, setMarkdownText] = useState('');
   const [showLinkDialog, setShowLinkDialog] = useState(false);
-  const ciscoDetectTimer = useRef(null);
   const keywordRulesRef = useRef(keywordRules);
   keywordRulesRef.current = keywordRules;
+
+  const ciscoEnabled = settings.ciscoHighlighting !== false;
 
   const editor = useEditor({
     extensions: [
@@ -166,7 +164,7 @@ export default function EditorPane({ pane }) {
       Color,
       FontFamily,
       Highlight.configure({ multicolor: true }),
-      CiscoHighlight.configure({ enabled: activeTab?.isCiscoConfig || false }),
+      CiscoHighlight.configure({ enabled: ciscoEnabled }),
       KeywordHighlight.configure({ rules: keywordRulesRef.current }),
     ],
     content: activeTab?.content || '',
@@ -215,26 +213,6 @@ export default function EditorPane({ pane }) {
         tabId: activeTab.id,
         content: json,
       });
-
-      // Update markdown preview text
-      if (activeTab?.isMarkdown) {
-        setMarkdownText(editor.getText());
-      }
-
-      // Debounced Cisco config detection
-      if (ciscoDetectTimer.current) clearTimeout(ciscoDetectTimer.current);
-      ciscoDetectTimer.current = setTimeout(() => {
-        const text = editor.getText();
-        const result = detectCiscoConfig(text);
-        if (result.isConfig !== activeTab?.isCiscoConfig) {
-          dispatch({
-            type: 'SET_TAB_CISCO',
-            paneId: pane.id,
-            tabId: activeTab.id,
-            isCiscoConfig: result.isConfig,
-          });
-        }
-      }, 2000);
     },
     onFocus: () => {
       dispatch({ type: 'SET_ACTIVE_PANE', paneId: pane.id });
@@ -258,12 +236,17 @@ export default function EditorPane({ pane }) {
     }
   }, [editor, settings.showLineNumbers]);
 
-  // Update markdown text when tab switches
+  // Live-update Cisco highlighting when setting changes
   useEffect(() => {
-    if (editor && activeTab?.isMarkdown) {
-      setMarkdownText(editor.getText());
+    if (!editor || editor.isDestroyed) return;
+    const ext = editor.extensionManager.extensions.find(e => e.name === 'ciscoHighlight');
+    if (ext) {
+      ext.options.enabled = ciscoEnabled;
     }
-  }, [editor, activeTab?.isMarkdown]);
+    const { tr } = editor.state;
+    tr.setMeta(ciscoKey, true);
+    editor.view.dispatch(tr);
+  }, [editor, ciscoEnabled]);
 
   // Live-update keyword highlight decorations when rules change
   useEffect(() => {
@@ -291,15 +274,6 @@ export default function EditorPane({ pane }) {
         e.preventDefault();
         setFindMode('replace');
       }
-      if (isMod && e.shiftKey && e.key === 'M') {
-        e.preventDefault();
-        dispatch({
-          type: 'SET_TAB_MARKDOWN',
-          paneId: pane.id,
-          tabId: activeTab.id,
-          isMarkdown: !activeTab?.isMarkdown,
-        });
-      }
       // Ctrl+K / Cmd+K — Insert / edit hyperlink
       if (isMod && e.key === 'k') {
         e.preventDefault();
@@ -319,21 +293,14 @@ export default function EditorPane({ pane }) {
     }}>
       <TabBar pane={pane} />
 
-      {/* Content area: inline markdown render or editor */}
+      {/* Content area */}
       <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
         {findMode && (
           <FindReplace editor={editor} mode={findMode} onClose={() => setFindMode(null)} />
         )}
-        {/* Always keep editor in DOM but hide it when markdown mode is on */}
-        <div style={{ display: activeTab?.isMarkdown ? 'none' : 'block', height: '100%' }}>
+        <div style={{ height: '100%' }}>
           <EditorContent editor={editor} style={{ height: '100%' }} />
         </div>
-        {/* Show markdown preview inline when markdown mode is on */}
-        {activeTab?.isMarkdown && (
-          <div style={{ height: '100%', overflow: 'auto' }}>
-            <MarkdownPreview content={markdownText} />
-          </div>
-        )}
         {showLinkDialog && (
           <LinkDialog editor={editor} onClose={() => setShowLinkDialog(false)} />
         )}

@@ -16,6 +16,7 @@ export const DEFAULT_SETTINGS = {
   tabSize: 2,
   weatherUnit: 'celsius',
   weatherLocation: null,
+  ciscoHighlighting: true,
 };
 
 export const FONT_FAMILIES = [
