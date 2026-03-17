@@ -194,6 +194,66 @@ describe('layoutReducer', () => {
     expect(state.activePaneId).toBe(other.activePaneId);
   });
 
+  it('SET_TAB_CISCO updates isCiscoConfig on the target tab', () => {
+    const initial = initialLayout();
+    const paneId = initial.root.id;
+    const tabId = initial.root.tabs[0].id;
+    const state = layoutReducer(initial, {
+      type: 'SET_TAB_CISCO',
+      paneId,
+      tabId,
+      isCiscoConfig: false,
+    });
+    const tab = state.root.tabs.find(t => t.id === tabId);
+    expect(tab.isCiscoConfig).toBe(false);
+  });
+
+  it('SET_TAB_CISCO does not affect other tabs', () => {
+    const initial = initialLayout();
+    const paneId = initial.root.id;
+    const withTab = layoutReducer(initial, { type: 'ADD_TAB', paneId });
+    const firstTabId = withTab.root.tabs[0].id;
+    const secondTabId = withTab.root.tabs[1].id;
+    const state = layoutReducer(withTab, {
+      type: 'SET_TAB_CISCO',
+      paneId,
+      tabId: firstTabId,
+      isCiscoConfig: false,
+    });
+    const secondTab = state.root.tabs.find(t => t.id === secondTabId);
+    expect(secondTab.isCiscoConfig).toBe(true);
+  });
+
+  it('SET_TAB_MARKDOWN updates isMarkdown on the target tab', () => {
+    const initial = initialLayout();
+    const paneId = initial.root.id;
+    const tabId = initial.root.tabs[0].id;
+    const state = layoutReducer(initial, {
+      type: 'SET_TAB_MARKDOWN',
+      paneId,
+      tabId,
+      isMarkdown: true,
+    });
+    const tab = state.root.tabs.find(t => t.id === tabId);
+    expect(tab.isMarkdown).toBe(true);
+  });
+
+  it('SET_TAB_MARKDOWN does not affect other tabs', () => {
+    const initial = initialLayout();
+    const paneId = initial.root.id;
+    const withTab = layoutReducer(initial, { type: 'ADD_TAB', paneId });
+    const firstTabId = withTab.root.tabs[0].id;
+    const secondTabId = withTab.root.tabs[1].id;
+    const state = layoutReducer(withTab, {
+      type: 'SET_TAB_MARKDOWN',
+      paneId,
+      tabId: firstTabId,
+      isMarkdown: true,
+    });
+    const secondTab = state.root.tabs.find(t => t.id === secondTabId);
+    expect(secondTab.isMarkdown).toBe(false);
+  });
+
   it('unknown action returns state unchanged', () => {
     const initial = initialLayout();
     const state = layoutReducer(initial, { type: 'UNKNOWN_ACTION' });

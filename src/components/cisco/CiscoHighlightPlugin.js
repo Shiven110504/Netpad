@@ -2,7 +2,7 @@ import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 
-const ciscoKey = new PluginKey('ciscoHighlight');
+export const ciscoKey = new PluginKey('ciscoHighlight');
 
 // Highlight rules — order matters (later rules overlay earlier)
 const RULES = [
@@ -81,8 +81,10 @@ export const CiscoHighlight = Extension.create({
           },
           apply(tr, old, oldState, newState) {
             if (!extensionThis.options.enabled) return DecorationSet.empty;
-            if (!tr.docChanged) return old;
-            return buildDecorations(tr.doc);
+            if (tr.getMeta(ciscoKey) || tr.docChanged) {
+              return buildDecorations(tr.doc);
+            }
+            return old;
           },
         },
         props: {
