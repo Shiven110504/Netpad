@@ -1,13 +1,46 @@
 import { v4 as uuidv4 } from 'uuid';
 
-let tabCounter = 0;
+function collectAllTabs(node) {
+  if (!node) return [];
+  if (node.type === 'pane') return node.tabs || [];
+  if (node.type === 'split') {
+    return node.children.flatMap(child => collectAllTabs(child));
+  }
+  return [];
+}
 
-export function createTab(title) {
-  tabCounter++;
+function nextUntitledNumber(rootNode) {
+  const tabs = collectAllTabs(rootNode);
+  const usedNumbers = new Set();
+  for (const tab of tabs) {
+    const match = tab.title?.match(/^Untitled (\d+)$/);
+    if (match) usedNumbers.add(parseInt(match[1], 10));
+  }
+  let n = 1;
+  while (usedNumbers.has(n)) n++;
+  return n;
+}
+
+export function createTab(rootNode) {
+  const num = nextUntitledNumber(rootNode);
   return {
     id: uuidv4(),
-    title: title || `Untitled ${tabCounter}`,
-    content: null, // Tiptap JSON content, null = empty doc
+    title: `Untitled ${num}`,
+    content: null,
+    isMarkdown: false,
+    isCiscoConfig: false,
+    scrollPosition: 0,
+    cursorPosition: { from: 0, to: 0 },
+    createdAt: Date.now(),
+    modifiedAt: Date.now(),
+  };
+}
+
+export function createTabWithTitle(title) {
+  return {
+    id: uuidv4(),
+    title,
+    content: null,
     isMarkdown: false,
     isCiscoConfig: false,
     scrollPosition: 0,
@@ -18,7 +51,7 @@ export function createTab(title) {
 }
 
 export function createPane(tab) {
-  const t = tab || createTab();
+  const t = tab || createTab(null);
   return {
     id: uuidv4(),
     type: 'pane',
@@ -31,7 +64,7 @@ export function createSplit(direction, children, sizes) {
   return {
     id: uuidv4(),
     type: 'split',
-    direction, // 'horizontal' | 'vertical'
+    direction,
     children,
     sizes: sizes || [50, 50],
   };
@@ -53,12 +86,4 @@ export function findPaneById(node, paneId) {
     }
   }
   return null;
-}
-
-export function resetTabCounter(count) {
-  tabCounter = count || 0;
-}
-
-export function getTabCounter() {
-  return tabCounter;
 }

@@ -1,8 +1,6 @@
-import { v4 as uuidv4 } from 'uuid';
 import { createTab, createPane, createSplit, countPanes } from './tabHelpers';
 import { MAX_PANES } from '../utils/constants';
 
-// Recursively update a node in the tree
 function updateNode(node, nodeId, updater) {
   if (node.id === nodeId) return updater(node);
   if (node.type === 'split') {
@@ -14,28 +12,13 @@ function updateNode(node, nodeId, updater) {
   return node;
 }
 
-// Replace a node in the tree by ID
-function replaceNode(node, targetId, replacement) {
-  if (node.id === targetId) return replacement;
-  if (node.type === 'split') {
-    return {
-      ...node,
-      children: node.children.map(child => replaceNode(child, targetId, replacement)),
-    };
-  }
-  return node;
-}
-
-// Remove a node and simplify the tree
 function removePane(node, paneId) {
   if (node.type === 'pane') return node;
   if (node.type === 'split') {
     const idx = node.children.findIndex(c => c.id === paneId);
     if (idx !== -1) {
-      // This split contains the pane to remove — return the other child
       return node.children[idx === 0 ? 1 : 0];
     }
-    // Recurse into children
     return {
       ...node,
       children: node.children.map(child => removePane(child, paneId)),
@@ -44,7 +27,6 @@ function removePane(node, paneId) {
   return node;
 }
 
-// Find the first pane in a tree (for focusing after close)
 function findFirstPane(node) {
   if (node.type === 'pane') return node;
   if (node.type === 'split' && node.children.length > 0) {
@@ -67,7 +49,7 @@ export function layoutReducer(state, action) {
       const { paneId, direction } = action;
       if (countPanes(state.root) >= MAX_PANES) return state;
 
-      const newTab = createTab();
+      const newTab = createTab(state.root);
       const newPane = createPane(newTab);
       const newRoot = updateNode(state.root, paneId, (pane) => {
         return createSplit(direction, [pane, newPane]);
@@ -102,7 +84,7 @@ export function layoutReducer(state, action) {
 
     case 'ADD_TAB': {
       const { paneId, tab } = action;
-      const newTab = tab || createTab();
+      const newTab = tab || createTab(state.root);
       return {
         ...state,
         root: updateNode(state.root, paneId, (pane) => ({
@@ -120,8 +102,13 @@ export function layoutReducer(state, action) {
         root: updateNode(state.root, paneId, (pane) => {
           const newTabs = pane.tabs.filter(t => t.id !== tabId);
           if (newTabs.length === 0) {
-            // Add a new empty tab instead of leaving empty
-            const newTab = createTab();
+            // Build a temporary root with this tab removed so the number scan
+            // doesn't count the tab we're closing
+            const rootWithoutTab = updateNode(state.root, paneId, (p) => ({
+              ...p,
+              tabs: [],
+            }));
+            const newTab = createTab(rootWithoutTab);
             return { ...pane, tabs: [newTab], activeTabId: newTab.id };
           }
           const newActiveTabId = pane.activeTabId === tabId
@@ -159,12 +146,15 @@ export function layoutReducer(state, action) {
       const { fromPaneId, toPaneId, tabId } = action;
       let movedTab = null;
 
-      // Remove tab from source pane
       let newRoot = updateNode(state.root, fromPaneId, (pane) => {
         movedTab = pane.tabs.find(t => t.id === tabId);
         const newTabs = pane.tabs.filter(t => t.id !== tabId);
         if (newTabs.length === 0) {
-          const newTab = createTab();
+          const rootWithoutTab = updateNode(state.root, fromPaneId, (p) => ({
+            ...p,
+            tabs: [],
+          }));
+          const newTab = createTab(rootWithoutTab);
           return { ...pane, tabs: [newTab], activeTabId: newTab.id };
         }
         const newActiveTabId = pane.activeTabId === tabId
@@ -173,7 +163,6 @@ export function layoutReducer(state, action) {
         return { ...pane, tabs: newTabs, activeTabId: newActiveTabId };
       });
 
-      // Add tab to target pane
       if (movedTab) {
         newRoot = updateNode(newRoot, toPaneId, (pane) => ({
           ...pane,
