@@ -51,6 +51,8 @@ export default function TabBar({ pane }) {
                 onActivate={() => dispatch({ type: 'ACTIVATE_TAB', paneId: pane.id, tabId: tab.id })}
                 onClose={() => dispatch({ type: 'CLOSE_TAB', paneId: pane.id, tabId: tab.id })}
                 onRename={(title) => dispatch({ type: 'UPDATE_TAB_TITLE', paneId: pane.id, tabId: tab.id, title })}
+                onSplitRight={() => dispatch({ type: 'SPLIT_PANE', paneId: pane.id, direction: 'horizontal' })}
+                onSplitDown={() => dispatch({ type: 'SPLIT_PANE', paneId: pane.id, direction: 'vertical' })}
               />
             ))}
           </SortableContext>

@@ -25,17 +25,19 @@ function RenderNode({ node }) {
   }
 
   if (node.type === 'split') {
-    const panelDirection = node.direction === 'horizontal' ? 'horizontal' : 'vertical';
+    // node.direction: 'horizontal' = left/right split, 'vertical' = top/bottom split
+    // Group orientation: 'horizontal' = panels side-by-side, 'vertical' = panels stacked
+    const panelOrientation = node.direction === 'horizontal' ? 'horizontal' : 'vertical';
     return (
       <Group
-        direction={panelDirection}
-        onLayout={(sizes) => {
+        orientation={panelOrientation}
+        onLayoutChange={(sizes) => {
           dispatch({ type: 'RESIZE_SPLIT', splitId: node.id, sizes });
         }}
       >
         {node.children.map((child, i) => (
           <React.Fragment key={child.id}>
-            {i > 0 && <ResizeHandle direction={panelDirection} />}
+            {i > 0 && <ResizeHandle direction={panelOrientation} />}
             <Panel
               defaultSize={node.sizes?.[i] || 50}
               minSize={15}
