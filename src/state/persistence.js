@@ -1,4 +1,11 @@
 import { STORAGE_KEYS } from '../utils/constants';
+import defaultRulesJson from '../../net_os_cli_rules.json';
+
+export const DEFAULT_KEYWORD_RULES = defaultRulesJson.rules.map((rule, i) => ({
+  ...rule,
+  id: `default-rule-${i}`,
+  backgroundColor: rule.backgroundColor || '',
+}));
 
 export function saveState(layout, settings) {
   try {
@@ -36,9 +43,10 @@ export function saveKeywordRules(rules) {
 export function loadKeywordRules() {
   try {
     const str = localStorage.getItem(STORAGE_KEYS.KEYWORDS);
-    return str ? JSON.parse(str) : [];
+    if (str) return JSON.parse(str);
+    return DEFAULT_KEYWORD_RULES;
   } catch (e) {
-    return [];
+    return DEFAULT_KEYWORD_RULES;
   }
 }
 

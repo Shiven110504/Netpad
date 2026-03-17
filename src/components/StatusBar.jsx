@@ -6,7 +6,6 @@ import {
 } from 'lucide-react';
 import { useApp } from '../state/AppContext';
 import { countPanes } from '../state/tabHelpers';
-import WeatherWidget from './widgets/WeatherWidget';
 
 export default function StatusBar({
   onOpenSettings,
@@ -34,13 +33,11 @@ export default function StatusBar({
       userSelect: 'none',
       flexShrink: 0,
     }}>
-      {/* Left: branding + pane count + weather */}
+      {/* Left: branding + pane count */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style={{ fontWeight: 600 }}>NetPad</span>
         <Divider />
         <span>{paneCount} Pane{paneCount !== 1 ? 's' : ''}</span>
-        <Divider />
-        <WeatherWidget />
       </div>
 
       {/* Right: tools + theme */}

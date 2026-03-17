@@ -14,6 +14,8 @@ export const DEFAULT_SETTINGS = {
   wordWrap: true,
   autoSaveInterval: 1500,
   tabSize: 2,
+  weatherUnit: 'celsius',
+  weatherLocation: null,
 };
 
 export const FONT_FAMILIES = [

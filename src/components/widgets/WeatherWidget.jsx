@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, MapPin } from 'lucide-react';
+import { useApp } from '../../state/AppContext';
 
 const WEATHER_CODES = {
   0: { icon: '☀️', desc: 'Clear' },
@@ -33,47 +34,84 @@ function getWeatherInfo(code) {
 }
 
 export default function WeatherWidget() {
+  const { settings } = useApp();
   const [weather, setWeather] = useState(null);
   const [city, setCity] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [useFahrenheit, setUseFahrenheit] = useState(false);
 
-  const fetchWeather = useCallback(async () => {
+  const weatherUnit = settings.weatherUnit || 'celsius';
+  const weatherLocation = settings.weatherLocation || null;
+
+  const fetchWeather = useCallback(async (manualCoords) => {
     setLoading(true);
     setError(null);
 
     try {
-      // Check cache
-      const cached = localStorage.getItem('netpad_weather_cache');
-      if (cached) {
-        const { data, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < 30 * 60 * 1000) {
-          setWeather(data.weather);
-          setCity(data.city);
-          setLoading(false);
-          return;
+      // Check cache first (if not manual refresh)
+      if (!manualCoords) {
+        const cached = localStorage.getItem('netpad_weather_cache');
+        if (cached) {
+          try {
+            const { data, timestamp } = JSON.parse(cached);
+            if (Date.now() - timestamp < 30 * 60 * 1000) {
+              setWeather(data.weather);
+              setCity(data.city);
+              setLoading(false);
+              return;
+            }
+          } catch(e) { /* ignore bad cache */ }
         }
       }
 
-      // Get location
-      const position = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
-      });
+      let latitude, longitude, cityName;
 
-      const { latitude, longitude } = position.coords;
+      // If manual location is specified in settings, use that
+      if (manualCoords) {
+        latitude = manualCoords.lat;
+        longitude = manualCoords.lon;
+        cityName = manualCoords.city;
+      } else if (weatherLocation) {
+        latitude = weatherLocation.lat;
+        longitude = weatherLocation.lon;
+        cityName = weatherLocation.city;
+      } else {
+        // Try geolocation first
+        try {
+          const position = await new Promise((resolve, reject) => {
+            if (!navigator.geolocation) reject(new Error('Geolocation not supported'));
+            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 8000 });
+          });
+          latitude = position.coords.latitude;
+          longitude = position.coords.longitude;
+        } catch (geoErr) {
+          // Fallback: IP-based location
+          const ipRes = await fetch('https://ipapi.co/json/');
+          const ipData = await ipRes.json();
+          latitude = ipData.latitude;
+          longitude = ipData.longitude;
+          cityName = ipData.city;
+        }
 
-      // Reverse geocode
-      const geoRes = await fetch(
-        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
-      );
-      const geoData = await geoRes.json();
-      const cityName = geoData.city || geoData.locality || geoData.principalSubdivision || 'Unknown';
+        // Reverse geocode if we don't have cityName yet
+        if (!cityName) {
+          try {
+            const geoRes = await fetch(
+              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+            );
+            const geoData = await geoRes.json();
+            cityName = geoData.city || geoData.locality || geoData.principalSubdivision || 'Unknown';
+          } catch(e) {
+            cityName = 'Unknown';
+          }
+        }
+      }
 
-      // Fetch weather
+      // Fetch weather from Open-Meteo
       const weatherRes = await fetch(
         `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&timezone=auto`
       );
+      if (!weatherRes.ok) throw new Error('Weather API failed');
       const weatherData = await weatherRes.json();
 
       const result = {
@@ -94,9 +132,13 @@ export default function WeatherWidget() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [weatherLocation]);
 
-  useEffect(() => { fetchWeather(); }, [fetchWeather]);
+  useEffect(() => {
+    // Clear cache when location setting changes so we refetch
+    localStorage.removeItem('netpad_weather_cache');
+    fetchWeather();
+  }, [fetchWeather]);
 
   if (loading) {
     return <span style={{ fontSize: 12, opacity: 0.7 }}>Loading weather...</span>;
@@ -104,7 +146,11 @@ export default function WeatherWidget() {
 
   if (error) {
     return (
-      <span style={{ fontSize: 12, opacity: 0.6, display: 'flex', alignItems: 'center', gap: 4 }}>
+      <span
+        style={{ fontSize: 12, opacity: 0.6, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}
+        onClick={() => fetchWeather()}
+        title={`${error} — Click to retry`}
+      >
         <MapPin size={12} /> Weather unavailable
       </span>
     );
@@ -119,16 +165,12 @@ export default function WeatherWidget() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
       <span>{info.icon}</span>
-      <span
-        onClick={() => setUseFahrenheit(!useFahrenheit)}
-        style={{ cursor: 'pointer' }}
-        title="Click to toggle °C/°F"
-      >
-        {useFahrenheit ? `${tempF}°F` : `${tempC}°C`}
+      <span style={{ cursor: 'default' }}>
+        {weatherUnit === 'fahrenheit' ? `${tempF}°F` : `${tempC}°C`}
       </span>
       <span style={{ opacity: 0.7 }}>{city}</span>
       <button
-        onClick={fetchWeather}
+        onClick={() => fetchWeather(true)}
         title="Refresh weather"
         style={{
           display: 'inline-flex',

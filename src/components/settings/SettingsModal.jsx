@@ -25,6 +25,47 @@ const SHORTCUTS = [
 export default function SettingsModal({ onClose }) {
   const { settings, updateSettings, toggleTheme } = useApp();
   const [activeTab, setActiveTab] = useState('general');
+  const [locationInput, setLocationInput] = useState(
+    settings.weatherLocation?.city || ''
+  );
+  const [locationStatus, setLocationStatus] = useState(null);
+
+  const handleSetLocation = async () => {
+    const cityName = locationInput.trim();
+    if (!cityName) return;
+
+    setLocationStatus('Searching...');
+    try {
+      const res = await fetch(
+        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1&language=en&format=json`
+      );
+      const data = await res.json();
+      if (data.results && data.results.length > 0) {
+        const r = data.results[0];
+        const loc = {
+          lat: r.latitude,
+          lon: r.longitude,
+          city: r.name + (r.country ? `, ${r.country}` : ''),
+        };
+        updateSettings({ weatherLocation: loc });
+        setLocationInput(loc.city);
+        // Clear weather cache so next fetch uses new location
+        localStorage.removeItem('netpad_weather_cache');
+        setLocationStatus('Location set.');
+      } else {
+        setLocationStatus('City not found. Try a different name.');
+      }
+    } catch (e) {
+      setLocationStatus('Lookup failed. Check your connection.');
+    }
+  };
+
+  const handleClearLocation = () => {
+    updateSettings({ weatherLocation: null });
+    setLocationInput('');
+    localStorage.removeItem('netpad_weather_cache');
+    setLocationStatus('Using auto-detect.');
+  };
 
   return (
     <div style={{
@@ -118,6 +159,66 @@ export default function SettingsModal({ onClose }) {
                 >
                   {FONT_SIZES.map(s => <option key={s} value={s}>{s}px</option>)}
                 </select>
+              </SettingRow>
+
+              {/* Divider */}
+              <div style={{ borderTop: '1px solid var(--border-color)', margin: '4px 0' }} />
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Weather
+              </div>
+
+              <SettingRow label="Temperature Unit">
+                <select
+                  value={settings.weatherUnit || 'celsius'}
+                  onChange={e => updateSettings({ weatherUnit: e.target.value })}
+                  style={selectStyle}
+                >
+                  <option value="celsius">Celsius (°C)</option>
+                  <option value="fahrenheit">Fahrenheit (°F)</option>
+                </select>
+              </SettingRow>
+
+              <SettingRow label="Weather Location">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input
+                      type="text"
+                      placeholder="City name (auto-detect if empty)"
+                      value={locationInput}
+                      onChange={e => setLocationInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') handleSetLocation(); }}
+                      style={{
+                        height: 30,
+                        padding: '0 8px',
+                        fontSize: 13,
+                        border: '1px solid var(--border-color)',
+                        borderRadius: 6,
+                        background: 'var(--bg-primary)',
+                        color: 'var(--text-primary)',
+                        minWidth: 180,
+                      }}
+                    />
+                    <button
+                      onClick={handleSetLocation}
+                      style={{
+                        ...actionBtnStyle,
+                        background: 'var(--accent-color)',
+                        color: '#fff',
+                      }}
+                    >
+                      Set
+                    </button>
+                    <button
+                      onClick={handleClearLocation}
+                      style={actionBtnStyle}
+                    >
+                      Auto
+                    </button>
+                  </div>
+                  {locationStatus && (
+                    <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{locationStatus}</span>
+                  )}
+                </div>
               </SettingRow>
             </div>
           )}
@@ -230,6 +331,17 @@ const selectStyle = {
   background: 'var(--bg-primary)',
   color: 'var(--text-primary)',
   minWidth: 150,
+};
+
+const actionBtnStyle = {
+  height: 30,
+  padding: '0 10px',
+  fontSize: 13,
+  border: '1px solid var(--border-color)',
+  borderRadius: 6,
+  background: 'var(--bg-secondary)',
+  color: 'var(--text-primary)',
+  cursor: 'pointer',
 };
 
 const thStyle = {
