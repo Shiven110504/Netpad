@@ -83,6 +83,12 @@ export function AppProvider({ children }) {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [layout, settings]);
 
+  // Compare diff slots: { tabId, title, text }
+  const [compareSlotA, setCompareSlotA] = useState(null);
+  const [compareSlotB, setCompareSlotB] = useState(null);
+  // Callback to open config diff modal — set by AppShell
+  const openConfigDiffRef = useRef(null);
+
   const value = {
     layout,
     dispatch,
@@ -95,6 +101,11 @@ export function AppProvider({ children }) {
     unregisterEditor,
     keywordRules,
     updateKeywordRules,
+    compareSlotA,
+    setCompareSlotA,
+    compareSlotB,
+    setCompareSlotB,
+    openConfigDiffRef,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

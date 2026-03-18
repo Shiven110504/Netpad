@@ -12,9 +12,10 @@ import SubnetCalculator from './widgets/SubnetCalculator';
 import MacLookup from './widgets/MacLookup';
 import { useApp } from '../state/AppContext';
 import { findPaneById } from '../state/tabHelpers';
+import { extractPlainText } from '../utils/extractPlainText';
 
 export default function AppShell() {
-  const { layout, dispatch, keywordRules, updateKeywordRules } = useApp();
+  const { layout, dispatch, keywordRules, updateKeywordRules, setCompareSlotA, setCompareSlotB, openConfigDiffRef } = useApp();
 
   // Modal/widget visibility state
   const [showSettings, setShowSettings] = useState(false);
@@ -23,6 +24,12 @@ export default function AppShell() {
   const [showStickyNotes, setShowStickyNotes] = useState(false);
   const [showSubnetCalc, setShowSubnetCalc] = useState(false);
   const [showMacLookup, setShowMacLookup] = useState(false);
+
+  // Register the open-config-diff callback so Tab context menus can use it
+  useEffect(() => {
+    openConfigDiffRef.current = () => setShowConfigDiff(true);
+    return () => { openConfigDiffRef.current = null; };
+  }, [openConfigDiffRef]);
 
   // Drag and drop state
   const sensors = useSensors(
@@ -45,6 +52,21 @@ export default function AppShell() {
     const overData = over.data.current;
 
     if (!activeData?.paneId) return;
+
+    // Handle drops onto compare diff slots
+    const overId = over.id;
+    if (overId === 'compare-drop-a' || overId === 'compare-drop-b') {
+      const tab = activeData.tab;
+      if (tab) {
+        const slot = { tabId: tab.id, title: tab.title, text: extractPlainText(tab.content), filledAt: Date.now() };
+        if (overId === 'compare-drop-a') {
+          setCompareSlotA(slot);
+        } else {
+          setCompareSlotB(slot);
+        }
+      }
+      return;
+    }
 
     const fromPaneId = activeData.paneId;
 
@@ -76,7 +98,7 @@ export default function AppShell() {
       // Cross-pane — move tab
       dispatch({ type: 'MOVE_TAB', fromPaneId, toPaneId, tabId: active.id });
     }
-  }, [layout, dispatch]);
+  }, [layout, dispatch, setCompareSlotA, setCompareSlotB]);
 
   const handleDragCancel = useCallback(() => {
     setActiveDragTab(null);
@@ -187,6 +209,9 @@ export default function AppShell() {
             </div>
           ) : null}
         </DragOverlay>
+
+        {/* ConfigDiff rendered inside DndContext so its droppables work */}
+        {showConfigDiff && <ConfigDiff onClose={() => setShowConfigDiff(false)} />}
       </DndContext>
       <StatusBar
         onOpenSettings={() => setShowSettings(true)}
@@ -202,7 +227,6 @@ export default function AppShell() {
 
       {/* Modals */}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
-      {showConfigDiff && <ConfigDiff onClose={() => setShowConfigDiff(false)} />}
       {showKeywordRules && (
         <KeywordRuleEditor
           onClose={() => setShowKeywordRules(false)}
