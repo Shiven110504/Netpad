@@ -37,7 +37,7 @@ export default function StatusBar({
     }}>
       {/* Left: branding + pane count */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style={{ fontWeight: 600 }}>NetPad</span>
+        <span style={{ fontWeight: 600 }}>NetPad Pro</span>
         <Divider />
         <span>{paneCount} Pane{paneCount !== 1 ? 's' : ''}</span>
       </div>

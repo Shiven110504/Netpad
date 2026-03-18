@@ -56,7 +56,7 @@ export default function TiptapEditor({ tab, paneId, onUpdate, onFocus }) {
       TableCell,
       TableHeader,
       Placeholder.configure({
-        placeholder: 'Start typing, or paste a Cisco config...',
+        placeholder: 'Start Typing',
       }),
       CharacterCount,
       CustomTextStyle,

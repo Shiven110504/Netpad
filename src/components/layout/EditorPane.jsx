@@ -304,7 +304,7 @@ export default function EditorPane({ pane }) {
       TableRow,
       TableCell,
       TableHeader,
-      Placeholder.configure({ placeholder: 'Start typing, or paste a Cisco config...' }),
+      Placeholder.configure({ placeholder: 'Start Typing' }),
       CharacterCount,
       CustomTextStyle,
       Color,

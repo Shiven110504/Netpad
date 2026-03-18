@@ -1,8 +1,8 @@
 {
-  "name": "netpad",
+  "name": "netpad-pro",
   "private": true,
   "version": "1.0.0",
-  "description": "Cisco Network Engineer Notepad",
+  "description": "NetPad Pro",
   "author": "Shiven",
   "type": "module",
   "main": "electron/main.cjs",
@@ -20,8 +20,8 @@
     "electron:build:mac": "vite build && electron-builder --mac"
   },
   "build": {
-    "appId": "com.netpad.app",
-    "productName": "NetPad",
+    "appId": "com.netpad-pro.app",
+    "productName": "NetPad Pro",
     "directories": {
       "output": "release"
     },

@@ -9,7 +9,7 @@ function createWindow() {
     height: 800,
     minWidth: 800,
     minHeight: 600,
-    title: 'NetPad',
+    title: 'NetPad Pro',
     icon: path.join(__dirname, '../build/icon.png'),
     webPreferences: {
       nodeIntegration: false,
