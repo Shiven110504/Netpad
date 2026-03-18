@@ -132,9 +132,24 @@ export const ColumnMode = Extension.create({
   name: 'columnMode',
 
   addProseMirrorPlugins() {
+    // Closure variable to track active drag cleanup — allows view.destroy() to
+    // remove document-level mousemove/mouseup listeners if the editor unmounts mid-drag.
+    let activeDragCleanup = null;
+
     return [
       new Plugin({
         key: columnModeKey,
+
+        view() {
+          return {
+            destroy() {
+              if (activeDragCleanup) {
+                activeDragCleanup();
+                activeDragCleanup = null;
+              }
+            },
+          };
+        },
 
         state: {
           init() {
@@ -189,13 +204,21 @@ export const ColumnMode = Extension.create({
                 }));
               };
 
-              const handleMouseUp = () => {
+              const removeListeners = () => {
                 document.removeEventListener('mousemove', handleMouseMove);
                 document.removeEventListener('mouseup', handleMouseUp);
+                activeDragCleanup = null;
+              };
+
+              const handleMouseUp = () => {
+                removeListeners();
               };
 
               document.addEventListener('mousemove', handleMouseMove);
               document.addEventListener('mouseup', handleMouseUp);
+
+              // Register cleanup so listeners are removed if view is destroyed mid-drag
+              activeDragCleanup = removeListeners;
 
               return true;
             },
@@ -246,8 +269,11 @@ export const ColumnMode = Extension.create({
               const { rect } = pluginState;
               let tr = view.state.tr;
 
-              // Delete from bottom to top to preserve positions
-              for (let row = rect.endRow; row >= rect.startRow && row < docLines.length; row--) {
+              // Delete from bottom to top to preserve positions.
+              // Clamp endRow to actual document length so out-of-range selections
+              // still cut the in-range portion.
+              const lastRow = Math.min(rect.endRow, docLines.length - 1);
+              for (let row = lastRow; row >= rect.startRow; row--) {
                 const line = docLines[row];
                 const lineStart = line.pos + 1;
                 const startCol = Math.min(rect.startCol, line.text.length);

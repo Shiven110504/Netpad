@@ -56,7 +56,7 @@ export default function AppShell() {
     if (overId === 'compare-drop-a' || overId === 'compare-drop-b') {
       const tab = activeData.tab;
       if (tab) {
-        const slot = { tabId: tab.id, title: tab.title, text: extractPlainText(tab.content) };
+        const slot = { tabId: tab.id, title: tab.title, text: extractPlainText(tab.content), filledAt: Date.now() };
         if (overId === 'compare-drop-a') {
           setCompareSlotA(slot);
         } else {

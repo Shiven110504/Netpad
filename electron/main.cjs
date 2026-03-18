@@ -45,7 +45,15 @@ function createWindow() {
 
     if (!app.isPackaged) {
       menu.append(new MenuItem({ type: 'separator' }));
-      menu.append(new MenuItem({ role: 'toggleDevTools', label: 'Inspect Element' }));
+      menu.append(new MenuItem({
+        label: 'Inspect Element',
+        click: () => {
+          mainWindow.webContents.inspectElement(params.x, params.y);
+          if (!mainWindow.webContents.isDevToolsOpened()) {
+            mainWindow.webContents.openDevTools();
+          }
+        },
+      }));
     }
 
     if (menu.items.length > 0) {

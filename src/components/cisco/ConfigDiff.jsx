@@ -27,24 +27,24 @@ function CompareDropZone({ id, children }) {
 export default function ConfigDiff({ onClose }) {
   const { compareSlotA, setCompareSlotA, compareSlotB, setCompareSlotB } = useApp();
 
-  // Track which slot was last applied, and local edited text.
-  // When slot changes, we reset to slot text. Otherwise user edits are preserved.
-  const [state1, setState1] = useState({ slotId: null, text: '' });
-  const [state2, setState2] = useState({ slotId: null, text: '' });
+  // Track which slot fill was last applied via a nonce, not just tabId.
+  // This ensures re-adding the same tab (with updated content) refreshes the textarea.
+  const [state1, setState1] = useState({ filledAt: null, text: '' });
+  const [state2, setState2] = useState({ filledAt: null, text: '' });
 
-  const slotAId = compareSlotA?.tabId ?? null;
-  const slotBId = compareSlotB?.tabId ?? null;
+  const slotANonce = compareSlotA?.filledAt ?? null;
+  const slotBNonce = compareSlotB?.filledAt ?? null;
 
-  // Derive config, resetting when slot changes (setState during render is a supported React pattern)
+  // Derive config, resetting when slot fill changes (setState during render is a supported React pattern)
   let config1 = state1.text;
-  if (state1.slotId !== slotAId && compareSlotA) {
+  if (state1.filledAt !== slotANonce && compareSlotA) {
     config1 = compareSlotA.text;
-    setState1({ slotId: slotAId, text: compareSlotA.text });
+    setState1({ filledAt: slotANonce, text: compareSlotA.text });
   }
   let config2 = state2.text;
-  if (state2.slotId !== slotBId && compareSlotB) {
+  if (state2.filledAt !== slotBNonce && compareSlotB) {
     config2 = compareSlotB.text;
-    setState2({ slotId: slotBId, text: compareSlotB.text });
+    setState2({ filledAt: slotBNonce, text: compareSlotB.text });
   }
 
   const handleChange1 = useCallback((e) => setState1(prev => ({ ...prev, text: e.target.value })), []);
@@ -57,12 +57,12 @@ export default function ConfigDiff({ onClose }) {
 
   const clearSlotA = () => {
     setCompareSlotA(null);
-    setState1({ slotId: null, text: '' });
+    setState1({ filledAt: null, text: '' });
   };
 
   const clearSlotB = () => {
     setCompareSlotB(null);
-    setState2({ slotId: null, text: '' });
+    setState2({ filledAt: null, text: '' });
   };
 
   return (

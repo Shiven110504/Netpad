@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { Plus } from 'lucide-react';
@@ -18,13 +18,15 @@ export default function TabBar({ pane }) {
     dispatch({ type: 'ADD_TAB', paneId: pane.id });
   };
 
-  const fillSlot = (tab, setter) => {
+  const fillSlot = useCallback((tab, setter) => {
+    const nonce = performance.now();
     setter({
       tabId: tab.id,
       title: tab.title,
       text: extractPlainText(tab.content),
+      filledAt: nonce,
     });
-  };
+  }, []);
 
   return (
     <div style={{

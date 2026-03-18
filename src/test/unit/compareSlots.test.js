@@ -46,6 +46,39 @@ describe('Compare slot fill from tab via context action', () => {
     };
     expect(slot.text).toBe('hostname Router1');
   });
+
+  it('includes filledAt nonce for stale-content detection', () => {
+    const tab = { id: 'tab-1', title: 'Test', content: 'hello' };
+    const before = Date.now();
+    const slot = {
+      tabId: tab.id,
+      title: tab.title,
+      text: extractPlainText(tab.content),
+      filledAt: Date.now(),
+    };
+    expect(slot.filledAt).toBeGreaterThanOrEqual(before);
+    expect(slot.filledAt).toBeLessThanOrEqual(Date.now());
+  });
+
+  it('re-adding same tab produces different filledAt nonce', async () => {
+    const tab = { id: 'tab-1', title: 'Test', content: 'v1' };
+    const slot1 = {
+      tabId: tab.id,
+      title: tab.title,
+      text: extractPlainText(tab.content),
+      filledAt: Date.now(),
+    };
+    // Small delay to ensure different timestamp
+    await new Promise(r => setTimeout(r, 5));
+    const slot2 = {
+      tabId: tab.id,
+      title: tab.title,
+      text: extractPlainText('v2'),
+      filledAt: Date.now(),
+    };
+    expect(slot1.tabId).toBe(slot2.tabId);
+    expect(slot1.filledAt).not.toBe(slot2.filledAt);
+  });
 });
 
 describe('Compare slot fill via drag/drop target', () => {
