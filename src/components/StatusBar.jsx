@@ -2,7 +2,7 @@ import React from 'react';
 import {
   Sun, Moon,
   Settings, GitCompareArrows, Highlighter,
-  StickyNote, Calculator,
+  StickyNote, Calculator, Network,
 } from 'lucide-react';
 import { useApp } from '../state/AppContext';
 import { countPanes } from '../state/tabHelpers';
@@ -13,8 +13,10 @@ export default function StatusBar({
   onOpenKeywordRules,
   onToggleStickyNotes,
   onToggleSubnetCalc,
+  onToggleMacLookup,
   stickyNotesOpen,
   subnetCalcOpen,
+  macLookupOpen,
 }) {
   const { layout, settings, toggleTheme } = useApp();
 
@@ -56,6 +58,13 @@ export default function StatusBar({
           active={subnetCalcOpen}
         >
           <Calculator size={13} />
+        </StatusBtn>
+        <StatusBtn
+          onClick={onToggleMacLookup}
+          title="MAC Address Lookup"
+          active={macLookupOpen}
+        >
+          <Network size={13} />
         </StatusBtn>
         <StatusBtn onClick={onOpenConfigDiff} title="Config Diff">
           <GitCompareArrows size={13} />
