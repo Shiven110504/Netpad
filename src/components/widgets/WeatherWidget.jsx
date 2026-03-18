@@ -43,13 +43,13 @@ export default function WeatherWidget() {
   const weatherUnit = settings.weatherUnit || 'celsius';
   const weatherLocation = settings.weatherLocation || null;
 
-  const fetchWeather = useCallback(async (manualCoords) => {
+  const fetchWeather = useCallback(async ({ forceRefresh = false, manualCoords = null } = {}) => {
     setLoading(true);
     setError(null);
 
     try {
-      // Check cache first (if not manual refresh)
-      if (!manualCoords) {
+      // Check cache first (skip when forceRefresh or manualCoords provided)
+      if (!forceRefresh && !manualCoords) {
         const cached = localStorage.getItem('netpad_weather_cache');
         if (cached) {
           try {
@@ -170,7 +170,7 @@ export default function WeatherWidget() {
       </span>
       <span style={{ opacity: 0.7 }}>{city}</span>
       <button
-        onClick={() => fetchWeather(true)}
+        onClick={() => fetchWeather({ forceRefresh: true })}
         title="Refresh weather"
         style={{
           display: 'inline-flex',

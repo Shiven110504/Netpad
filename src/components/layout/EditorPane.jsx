@@ -23,6 +23,7 @@ import { DOMParser as ProseMirrorDOMParser } from '@tiptap/pm/model';
 import { CiscoHighlight, ciscoKey } from '../cisco/CiscoHighlightPlugin';
 import { KeywordHighlight, keywordHighlightKey } from '../highlighting/KeywordHighlightPlugin';
 import { TableAddControls } from '../editor/TableAddControls';
+import { ColumnMode } from '../editor/ColumnModePlugin';
 
 function looksLikeMarkdown(text) {
   // Check for common markdown patterns
@@ -313,6 +314,7 @@ export default function EditorPane({ pane }) {
       CiscoHighlight.configure({ enabled: ciscoEnabled }),
       KeywordHighlight.configure({ rules: keywordRulesRef.current }),
       TableAddControls,
+      ColumnMode,
     ],
     content: activeTab?.content || '',
     editorProps: {
@@ -393,15 +395,34 @@ export default function EditorPane({ pane }) {
     return () => unregisterEditor(pane.id);
   }, [editor, pane.id, registerEditor, unregisterEditor]);
 
-  // Sync line numbers setting
+  // Apply editor display settings (line numbers, font family/size, word wrap)
   useEffect(() => {
     if (editor) {
       const el = editor.view?.dom;
       if (el) {
         el.classList.toggle('show-line-numbers', settings.showLineNumbers);
+
+        // Font family
+        if (settings.fontFamily) {
+          el.style.fontFamily = settings.fontFamily;
+        }
+
+        // Font size
+        if (settings.fontSize) {
+          el.style.fontSize = `${settings.fontSize}px`;
+        }
+
+        // Word wrap
+        if (settings.wordWrap === false) {
+          el.style.whiteSpace = 'pre';
+          el.style.overflowX = 'auto';
+        } else {
+          el.style.whiteSpace = '';
+          el.style.overflowX = '';
+        }
       }
     }
-  }, [editor, settings.showLineNumbers]);
+  }, [editor, settings.showLineNumbers, settings.fontFamily, settings.fontSize, settings.wordWrap]);
 
   // Live-update Cisco highlighting when setting changes
   useEffect(() => {
