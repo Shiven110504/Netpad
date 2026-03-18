@@ -22,6 +22,7 @@ import { TextSelection } from '@tiptap/pm/state';
 import { DOMParser as ProseMirrorDOMParser } from '@tiptap/pm/model';
 import { CiscoHighlight, ciscoKey } from '../cisco/CiscoHighlightPlugin';
 import { KeywordHighlight, keywordHighlightKey } from '../highlighting/KeywordHighlightPlugin';
+import { TableAddControls } from '../editor/TableAddControls';
 import { ColumnMode } from '../editor/ColumnModePlugin';
 
 function looksLikeMarkdown(text) {
@@ -312,6 +313,7 @@ export default function EditorPane({ pane }) {
       SelectLineOnFormat,
       CiscoHighlight.configure({ enabled: ciscoEnabled }),
       KeywordHighlight.configure({ rules: keywordRulesRef.current }),
+      TableAddControls,
       ColumnMode,
     ],
     content: activeTab?.content || '',

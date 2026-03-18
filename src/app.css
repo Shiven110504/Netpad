@@ -364,6 +364,74 @@ html, body, #root {
   background: var(--editor-selection);
 }
 
+/* Table Add Row/Column Controls */
+.table-add-controls {
+  display: flex;
+  gap: 8px;
+  margin: 2px 0 8px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  user-select: none;
+}
+
+.tableWrapper:hover + .table-add-controls,
+.table-add-controls:hover {
+  opacity: 1;
+}
+
+.table-add-row-btn,
+.table-add-col-btn {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  height: 24px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.table-add-row-btn:hover,
+.table-add-col-btn:hover {
+  background: var(--bg-hover);
+}
+
+.table-add-btn-line {
+  flex: 1;
+  height: 1px;
+  background: var(--accent-color);
+  opacity: 0.3;
+}
+
+.table-add-btn-circle {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent-color);
+  color: var(--accent-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  flex-shrink: 0;
+  margin: 0 2px;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.table-add-btn-text {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+.table-add-row-btn:hover .table-add-btn-circle,
+.table-add-col-btn:hover .table-add-btn-circle {
+  transform: scale(1.15);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
 /* ===== Cisco Syntax Highlighting ===== */
 .cisco-command { color: #569cd6; }
 .cisco-section { color: #c586c0; font-weight: 600; }
