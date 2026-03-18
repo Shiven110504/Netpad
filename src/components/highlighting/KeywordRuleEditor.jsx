@@ -81,20 +81,55 @@ export default function KeywordRuleEditor({ onClose, rules, onRulesChange }) {
     input.click();
   };
 
-  // Get highlighted test text
-  const getHighlightedTest = () => {
-    let html = testText;
+  // Build highlighted test text as safe React elements (no dangerouslySetInnerHTML)
+  const getHighlightedTestElements = () => {
+    // Build a flat list of {start, end, rule} ranges
+    const highlights = [];
     for (const rule of rules.filter(r => r.enabled)) {
       try {
         const flags = rule.caseSensitive ? 'g' : 'gi';
         const regex = new RegExp(rule.pattern, flags);
-        html = html.replace(regex, (match) => {
-          const style = `color:${rule.color};${rule.backgroundColor ? `background:${rule.backgroundColor}` : ''}`;
-          return `<span style="${style}">${match}</span>`;
-        });
+        let m;
+        while ((m = regex.exec(testText)) !== null) {
+          // Skip zero-length matches and advance to avoid infinite loop
+          if (m[0].length === 0) {
+            regex.lastIndex++;
+            continue;
+          }
+          highlights.push({ start: m.index, end: m.index + m[0].length, rule });
+          if (highlights.length > 5000) break;
+        }
       } catch (e) { /* invalid regex */ }
     }
-    return html;
+
+    if (highlights.length === 0) return testText;
+
+    // Sort by start position, then by length descending (first matching rule wins)
+    highlights.sort((a, b) => a.start - b.start || b.end - a.end);
+
+    // Build non-overlapping segments (first match wins at each position)
+    const segments = [];
+    let cursor = 0;
+    for (const h of highlights) {
+      if (h.start < cursor) continue; // overlaps with a previous highlight
+      if (h.start > cursor) {
+        segments.push({ text: testText.slice(cursor, h.start), rule: null });
+      }
+      segments.push({ text: testText.slice(h.start, h.end), rule: h.rule });
+      cursor = h.end;
+    }
+    if (cursor < testText.length) {
+      segments.push({ text: testText.slice(cursor), rule: null });
+    }
+
+    return segments.map((seg, i) => {
+      if (!seg.rule) return <React.Fragment key={i}>{seg.text}</React.Fragment>;
+      const style = {
+        color: seg.rule.color,
+        ...(seg.rule.backgroundColor ? { background: seg.rule.backgroundColor } : {}),
+      };
+      return <span key={i} style={style}>{seg.text}</span>;
+    });
   };
 
   return (
@@ -210,9 +245,9 @@ export default function KeywordRuleEditor({ onClose, rules, onRulesChange }) {
                     fontFamily: 'monospace',
                     fontSize: 12,
                     whiteSpace: 'pre-wrap',
-                  }}
-                    dangerouslySetInnerHTML={{ __html: getHighlightedTest() }}
-                  />
+                  }}>
+                    {getHighlightedTestElements()}
+                  </div>
                 </div>
               </div>
             ) : (

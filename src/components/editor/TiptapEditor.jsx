@@ -127,17 +127,37 @@ export default function TiptapEditor({ tab, paneId, onUpdate, onFocus }) {
     isInitialMount.current = false;
   }, [tab.id]); // Only re-sync when tab ID changes
 
-  // Update line number class when setting changes
+  // Update editor DOM when settings change
   useEffect(() => {
-    if (editor) {
-      const el = editor.view.dom;
-      if (settings.showLineNumbers) {
-        el.classList.add('show-line-numbers');
-      } else {
-        el.classList.remove('show-line-numbers');
-      }
+    if (!editor) return;
+    const el = editor.view.dom;
+
+    // Line numbers
+    if (settings.showLineNumbers) {
+      el.classList.add('show-line-numbers');
+    } else {
+      el.classList.remove('show-line-numbers');
     }
-  }, [editor, settings.showLineNumbers]);
+
+    // Font family
+    if (settings.fontFamily) {
+      el.style.fontFamily = settings.fontFamily;
+    }
+
+    // Font size
+    if (settings.fontSize) {
+      el.style.fontSize = `${settings.fontSize}px`;
+    }
+
+    // Word wrap
+    if (settings.wordWrap === false) {
+      el.style.whiteSpace = 'pre';
+      el.style.overflowX = 'auto';
+    } else {
+      el.style.whiteSpace = '';
+      el.style.overflowX = '';
+    }
+  }, [editor, settings.showLineNumbers, settings.fontFamily, settings.fontSize, settings.wordWrap]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
