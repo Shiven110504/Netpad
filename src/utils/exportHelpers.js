@@ -72,7 +72,12 @@ function serializeNode(node) {
     case 'blockquote':
       return (node.content || [])
         .map(child => serializeNode(child))
-        .map(line => `> ${line}`)
+        .map(block =>
+          block
+            .split('\n')
+            .map(line => `> ${line}`)
+            .join('\n')
+        )
         .join('\n');
     case 'codeBlock': {
       const lang = node.attrs?.language || '';
