@@ -2,10 +2,10 @@ import React from 'react';
 import {
   Sun, Moon,
   Settings, GitCompareArrows, Highlighter,
-  StickyNote, Calculator, Network,
+  StickyNote, Calculator, Network, Terminal,
 } from 'lucide-react';
 import { useApp } from '../state/AppContext';
-import { countPanes } from '../state/tabHelpers';
+import { countPanes, collectAllTabs } from '../state/tabHelpers';
 
 export default function StatusBar({
   onOpenSettings,
@@ -21,6 +21,8 @@ export default function StatusBar({
   const { layout, settings, toggleTheme } = useApp();
 
   const paneCount = countPanes(layout.root);
+  const allTabs = collectAllTabs(layout.root);
+  const sshConnections = allTabs.filter(t => t.type === 'ssh' && t.sshStatus === 'connected').length;
 
   return (
     <div style={{
@@ -40,6 +42,15 @@ export default function StatusBar({
         <span style={{ fontWeight: 600 }}>NetPad Pro</span>
         <Divider />
         <span>{paneCount} Pane{paneCount !== 1 ? 's' : ''}</span>
+        {sshConnections > 0 && (
+          <>
+            <Divider />
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Terminal size={11} />
+              {sshConnections} SSH
+            </span>
+          </>
+        )}
       </div>
 
       {/* Right: tools + theme */}

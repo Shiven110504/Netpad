@@ -10,12 +10,13 @@ import KeywordRuleEditor from './highlighting/KeywordRuleEditor';
 import StickyNotes from './widgets/StickyNotes';
 import SubnetCalculator from './widgets/SubnetCalculator';
 import MacLookup from './widgets/MacLookup';
+import ConnectionDialog from './terminal/ConnectionDialog';
 import { useApp } from '../state/AppContext';
 import { findPaneById } from '../state/tabHelpers';
 import { extractPlainText } from '../utils/extractPlainText';
 
 export default function AppShell() {
-  const { layout, dispatch, keywordRules, updateKeywordRules, setCompareSlotA, setCompareSlotB, openConfigDiffRef } = useApp();
+  const { layout, dispatch, keywordRules, updateKeywordRules, setCompareSlotA, setCompareSlotB, openConfigDiffRef, openConnectionDialogRef } = useApp();
 
   // Modal/widget visibility state
   const [showSettings, setShowSettings] = useState(false);
@@ -24,6 +25,13 @@ export default function AppShell() {
   const [showStickyNotes, setShowStickyNotes] = useState(false);
   const [showSubnetCalc, setShowSubnetCalc] = useState(false);
   const [showMacLookup, setShowMacLookup] = useState(false);
+  const [connectionDialogPaneId, setConnectionDialogPaneId] = useState(null);
+
+  // Register the connection dialog opener in context so TabBar can use it
+  useEffect(() => {
+    openConnectionDialogRef.current = (paneId) => setConnectionDialogPaneId(paneId);
+    return () => { openConnectionDialogRef.current = null; };
+  }, [openConnectionDialogRef]);
 
   // Register the open-config-diff callback so Tab context menus can use it
   useEffect(() => {
@@ -111,6 +119,7 @@ export default function AppShell() {
 
       // Escape — Close any open modal
       if (e.key === 'Escape') {
+        if (connectionDialogPaneId) { setConnectionDialogPaneId(null); e.preventDefault(); return; }
         if (showSettings) { setShowSettings(false); e.preventDefault(); return; }
         if (showConfigDiff) { setShowConfigDiff(false); e.preventDefault(); return; }
         if (showKeywordRules) { setShowKeywordRules(false); e.preventDefault(); return; }
@@ -141,6 +150,14 @@ export default function AppShell() {
       if (isMod && e.shiftKey && e.key === '|') {
         e.preventDefault();
         dispatch({ type: 'SPLIT_PANE', paneId: layout.activePaneId, direction: 'vertical' });
+      }
+
+      // Ctrl+Shift+T — New SSH Terminal
+      if (isMod && e.shiftKey && e.key === 'T') {
+        e.preventDefault();
+        if (window.sshAPI?.isAvailable) {
+          setConnectionDialogPaneId(layout.activePaneId);
+        }
       }
 
       // Ctrl+, — Settings
@@ -174,7 +191,7 @@ export default function AppShell() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [layout, dispatch, showSettings, showConfigDiff, showKeywordRules]);
+  }, [layout, dispatch, showSettings, showConfigDiff, showKeywordRules, connectionDialogPaneId]);
 
   return (
     <div style={{
@@ -239,6 +256,17 @@ export default function AppShell() {
       {showStickyNotes && <StickyNotes onClose={() => setShowStickyNotes(false)} />}
       {showSubnetCalc && <SubnetCalculator onClose={() => setShowSubnetCalc(false)} />}
       {showMacLookup && <MacLookup onClose={() => setShowMacLookup(false)} />}
+
+      {/* SSH Connection Dialog */}
+      {connectionDialogPaneId && (
+        <ConnectionDialog
+          paneId={connectionDialogPaneId}
+          onConnect={(config, paneId) => {
+            dispatch({ type: 'ADD_SSH_TAB', paneId, config });
+          }}
+          onClose={() => setConnectionDialogPaneId(null)}
+        />
+      )}
     </div>
   );
 }

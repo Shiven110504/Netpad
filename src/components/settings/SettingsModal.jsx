@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { useApp } from '../../state/AppContext';
-import { FONT_FAMILIES, FONT_SIZES } from '../../utils/constants';
+import { FONT_FAMILIES, FONT_SIZES, DEFAULT_SSH_SETTINGS, TERMINAL_FONT_FAMILIES } from '../../utils/constants';
 
 const SHORTCUTS = [
   ['Ctrl+N', 'New tab'],
@@ -18,6 +18,7 @@ const SHORTCUTS = [
   ['Ctrl+H', 'Find & Replace'],
   ['Ctrl+Tab', 'Next tab'],
   ['Ctrl+Shift+Tab', 'Previous tab'],
+  ['Ctrl+Shift+T', 'New SSH terminal'],
   ['Escape', 'Close panel/dialog'],
 ];
 
@@ -106,7 +107,7 @@ export default function SettingsModal({ onClose }) {
           borderBottom: '1px solid var(--border-color)',
           background: 'var(--bg-secondary)',
         }}>
-          {['general', 'editor', 'shortcuts'].map(tab => (
+          {['general', 'editor', 'terminal', 'shortcuts'].map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -240,6 +241,58 @@ export default function SettingsModal({ onClose }) {
                 <ToggleSwitch
                   checked={settings.ciscoHighlighting !== false}
                   onChange={v => updateSettings({ ciscoHighlighting: v })}
+                />
+              </SettingRow>
+            </div>
+          )}
+
+          {activeTab === 'terminal' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                Settings for SSH terminal tabs. Requires the desktop app (Electron).
+              </div>
+              <SettingRow label="Font Family">
+                <select
+                  value={(settings.terminal || DEFAULT_SSH_SETTINGS).fontFamily}
+                  onChange={e => updateSettings({ terminal: { ...(settings.terminal || DEFAULT_SSH_SETTINGS), fontFamily: e.target.value } })}
+                  style={selectStyle}
+                >
+                  {TERMINAL_FONT_FAMILIES.map(f => <option key={f.label} value={f.value}>{f.label}</option>)}
+                </select>
+              </SettingRow>
+              <SettingRow label="Font Size">
+                <select
+                  value={(settings.terminal || DEFAULT_SSH_SETTINGS).fontSize}
+                  onChange={e => updateSettings({ terminal: { ...(settings.terminal || DEFAULT_SSH_SETTINGS), fontSize: Number(e.target.value) } })}
+                  style={selectStyle}
+                >
+                  {[10, 11, 12, 13, 14, 16, 18, 20].map(s => <option key={s} value={s}>{s}px</option>)}
+                </select>
+              </SettingRow>
+              <SettingRow label="Scrollback Lines">
+                <select
+                  value={(settings.terminal || DEFAULT_SSH_SETTINGS).scrollbackLines}
+                  onChange={e => updateSettings({ terminal: { ...(settings.terminal || DEFAULT_SSH_SETTINGS), scrollbackLines: Number(e.target.value) } })}
+                  style={selectStyle}
+                >
+                  {[1000, 2000, 5000, 10000, 20000, 50000].map(n => <option key={n} value={n}>{n.toLocaleString()}</option>)}
+                </select>
+              </SettingRow>
+              <SettingRow label="Cursor Style">
+                <select
+                  value={(settings.terminal || DEFAULT_SSH_SETTINGS).cursorStyle}
+                  onChange={e => updateSettings({ terminal: { ...(settings.terminal || DEFAULT_SSH_SETTINGS), cursorStyle: e.target.value } })}
+                  style={selectStyle}
+                >
+                  <option value="block">Block</option>
+                  <option value="underline">Underline</option>
+                  <option value="bar">Bar</option>
+                </select>
+              </SettingRow>
+              <SettingRow label="Cursor Blink">
+                <ToggleSwitch
+                  checked={(settings.terminal || DEFAULT_SSH_SETTINGS).cursorBlink}
+                  onChange={v => updateSettings({ terminal: { ...(settings.terminal || DEFAULT_SSH_SETTINGS), cursorBlink: v } })}
                 />
               </SettingRow>
             </div>

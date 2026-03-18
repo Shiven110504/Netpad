@@ -1,5 +1,6 @@
-const { app, BrowserWindow, Menu, MenuItem } = require('electron');
+const { app, BrowserWindow, Menu, MenuItem, ipcMain, dialog } = require('electron');
 const path = require('path');
+const sshManager = require('./sshManager.cjs');
 
 let mainWindow = null;
 
@@ -73,10 +74,64 @@ function createWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+
+  // SSH IPC handlers
+  ipcMain.handle('ssh:connect', async (_event, config) => {
+    const { v4: uuidv4 } = require('uuid');
+    const sessionId = uuidv4();
+    try {
+      const result = await sshManager.connect(sessionId, config);
+      return result;
+    } catch (err) {
+      return { sessionId, status: 'error', error: err.message };
+    }
+  });
+
+  ipcMain.handle('ssh:disconnect', async (_event, sessionId) => {
+    sshManager.disconnect(sessionId);
+    return { success: true };
+  });
+
+  ipcMain.on('ssh:send', (_event, sessionId, data) => {
+    sshManager.send(sessionId, data);
+  });
+
+  ipcMain.on('ssh:resize', (_event, sessionId, cols, rows) => {
+    sshManager.resize(sessionId, cols, rows);
+  });
+
+  ipcMain.handle('ssh:selectKeyFile', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select SSH Private Key',
+      properties: ['openFile'],
+      filters: [
+        { name: 'SSH Keys', extensions: ['pem', 'key', 'ppk'] },
+        { name: 'All Files', extensions: ['*'] },
+      ],
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+    return result.filePaths[0];
+  });
+
+  // Forward SSH events to renderer
+  sshManager.on('data', (sessionId, data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('ssh:data', sessionId, data);
+    }
+  });
+
+  sshManager.on('status', (sessionId, status, error) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('ssh:status', sessionId, status, error);
+    }
+  });
 }
 
 // Quit when all windows are closed
 app.on('window-all-closed', () => {
+  sshManager.disconnectAll();
   // On macOS, apps typically stay active until Cmd+Q
   if (process.platform !== 'darwin') {
     app.quit();

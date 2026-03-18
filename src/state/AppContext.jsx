@@ -88,6 +88,8 @@ export function AppProvider({ children }) {
   const [compareSlotB, setCompareSlotB] = useState(null);
   // Callback to open config diff modal — set by AppShell
   const openConfigDiffRef = useRef(null);
+  // Callback to open SSH connection dialog — set by AppShell
+  const openConnectionDialogRef = useRef(null);
 
   const value = {
     layout,
@@ -106,6 +108,17 @@ export function AppProvider({ children }) {
     compareSlotB,
     setCompareSlotB,
     openConfigDiffRef,
+    openConnectionDialogRef,
+    showConnectionDialog: (paneId) => {
+      if (openConnectionDialogRef.current) {
+        openConnectionDialogRef.current(paneId);
+      }
+    },
+    setShowConnectionDialog: (paneId) => {
+      if (openConnectionDialogRef.current) {
+        openConnectionDialogRef.current(paneId);
+      }
+    },
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

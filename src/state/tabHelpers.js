@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 
-function collectAllTabs(node) {
+export function collectAllTabs(node) {
   if (!node) return [];
   if (node.type === 'pane') return node.tabs || [];
   if (node.type === 'split') {
@@ -45,6 +45,29 @@ export function createTabWithTitle(title) {
     isCiscoConfig: true,
     scrollPosition: 0,
     cursorPosition: { from: 0, to: 0 },
+    createdAt: Date.now(),
+    modifiedAt: Date.now(),
+  };
+}
+
+export function createSshTab(config) {
+  const title = config.sessionName || `${config.username}@${config.host}`;
+  return {
+    id: uuidv4(),
+    title,
+    content: null,
+    type: 'ssh',
+    sshSessionId: null,
+    sshConfig: {
+      host: config.host,
+      port: config.port || 22,
+      username: config.username,
+      authMethod: config.authMethod || 'password',
+      sessionName: config.sessionName || '',
+      keyFilePath: config.keyFilePath || null,
+    },
+    sshStatus: 'disconnected',
+    sshError: null,
     createdAt: Date.now(),
     modifiedAt: Date.now(),
   };

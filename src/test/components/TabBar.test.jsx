@@ -69,13 +69,13 @@ describe('TabBar', () => {
   it('renders the add tab button with correct title', () => {
     const pane = { id: 'pane1', tabs: [{ id: 't1', title: 'Tab 1' }], activeTabId: 't1' };
     render(<TabBar pane={pane} />);
-    expect(screen.getByTitle('New Tab (Ctrl+N)')).toBeInTheDocument();
+    expect(screen.getByTitle('New Note Tab (Ctrl+N)')).toBeInTheDocument();
   });
 
   it('clicking add tab button dispatches ADD_TAB', () => {
     const pane = { id: 'pane1', tabs: [{ id: 't1', title: 'Tab 1' }], activeTabId: 't1' };
     render(<TabBar pane={pane} />);
-    const addBtn = screen.getByTitle('New Tab (Ctrl+N)');
+    const addBtn = screen.getByTitle('New Note Tab (Ctrl+N)');
     fireEvent.click(addBtn);
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'ADD_TAB', paneId: 'pane1' });
   });
