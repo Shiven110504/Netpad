@@ -9,6 +9,7 @@ import ConfigDiff from './cisco/ConfigDiff';
 import KeywordRuleEditor from './highlighting/KeywordRuleEditor';
 import StickyNotes from './widgets/StickyNotes';
 import SubnetCalculator from './widgets/SubnetCalculator';
+import MacLookup from './widgets/MacLookup';
 import { useApp } from '../state/AppContext';
 import { findPaneById } from '../state/tabHelpers';
 import { extractPlainText } from '../utils/extractPlainText';
@@ -22,6 +23,7 @@ export default function AppShell() {
   const [showKeywordRules, setShowKeywordRules] = useState(false);
   const [showStickyNotes, setShowStickyNotes] = useState(false);
   const [showSubnetCalc, setShowSubnetCalc] = useState(false);
+  const [showMacLookup, setShowMacLookup] = useState(false);
 
   // Register the open-config-diff callback so Tab context menus can use it
   useEffect(() => {
@@ -217,8 +219,10 @@ export default function AppShell() {
         onOpenKeywordRules={() => setShowKeywordRules(true)}
         onToggleStickyNotes={() => setShowStickyNotes(prev => !prev)}
         onToggleSubnetCalc={() => setShowSubnetCalc(prev => !prev)}
+        onToggleMacLookup={() => setShowMacLookup(prev => !prev)}
         stickyNotesOpen={showStickyNotes}
         subnetCalcOpen={showSubnetCalc}
+        macLookupOpen={showMacLookup}
       />
 
       {/* Modals */}
@@ -234,6 +238,7 @@ export default function AppShell() {
       {/* Floating widgets */}
       {showStickyNotes && <StickyNotes onClose={() => setShowStickyNotes(false)} />}
       {showSubnetCalc && <SubnetCalculator onClose={() => setShowSubnetCalc(false)} />}
+      {showMacLookup && <MacLookup onClose={() => setShowMacLookup(false)} />}
     </div>
   );
 }
