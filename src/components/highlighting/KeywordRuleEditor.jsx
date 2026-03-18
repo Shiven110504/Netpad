@@ -91,6 +91,11 @@ export default function KeywordRuleEditor({ onClose, rules, onRulesChange }) {
         const regex = new RegExp(rule.pattern, flags);
         let m;
         while ((m = regex.exec(testText)) !== null) {
+          // Skip zero-length matches and advance to avoid infinite loop
+          if (m[0].length === 0) {
+            regex.lastIndex++;
+            continue;
+          }
           highlights.push({ start: m.index, end: m.index + m[0].length, rule });
           if (highlights.length > 5000) break;
         }

@@ -391,7 +391,7 @@ export default function EditorPane({ pane }) {
     return () => unregisterEditor(pane.id);
   }, [editor, pane.id, registerEditor, unregisterEditor]);
 
-  // Sync line numbers setting
+  // Apply editor display settings (line numbers, font family/size, word wrap)
   useEffect(() => {
     if (editor) {
       const el = editor.view?.dom;

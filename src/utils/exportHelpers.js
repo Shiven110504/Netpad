@@ -51,9 +51,17 @@ export function exportAsMarkdown(editor, title = 'document') {
 }
 
 // Serialize TipTap JSON doc to Markdown
-function tiptapJsonToMarkdown(doc) {
+// Exported for testing
+export function tiptapJsonToMarkdown(doc) {
   if (!doc || !doc.content) return '';
   return doc.content.map(node => serializeNode(node)).join('\n\n');
+}
+
+// Escape Markdown metacharacters in plain text so it renders literally
+// Note: pipe (|) is NOT escaped here — it's only special inside tables,
+// and serializeTable handles escaping pipes in cell content separately.
+function escapeMarkdown(text) {
+  return text.replace(/([\\`*_{}[\]()#+\-.!<>~])/g, '\\$1');
 }
 
 function serializeNode(node) {
@@ -69,20 +77,21 @@ function serializeNode(node) {
       return serializeList(node, false);
     case 'orderedList':
       return serializeList(node, true);
-    case 'blockquote':
-      return (node.content || [])
+    case 'blockquote': {
+      // Serialize children, then prefix every line (including blank) with >
+      const inner = (node.content || [])
         .map(child => serializeNode(child))
-        .map(block =>
-          block
-            .split('\n')
-            .map(line => `> ${line}`)
-            .join('\n')
-        )
         .join('\n');
+      return inner.split('\n').map(line => `> ${line}`).join('\n');
+    }
     case 'codeBlock': {
       const lang = node.attrs?.language || '';
-      const code = serializeInline(node.content);
-      return `\`\`\`${lang}\n${code}\n\`\`\``;
+      // Extract raw text without Markdown escaping/formatting
+      const code = extractRawText(node.content);
+      // Choose a fence that doesn't collide with code content
+      let fence = '```';
+      while (code.includes(fence)) fence += '`';
+      return `${fence}${lang}\n${code}\n${fence}`;
     }
     case 'horizontalRule':
       return '---';
@@ -95,35 +104,57 @@ function serializeNode(node) {
       return title ? `![${alt}](${src} "${title}")` : `![${alt}](${src})`;
     }
     default:
-      // Fallback: try to serialize children
       if (node.content) {
         return node.content.map(child => serializeNode(child)).join('');
       }
-      return node.text || '';
+      return node.text ? escapeMarkdown(node.text) : '';
   }
+}
+
+// Extract raw text from content nodes (no Markdown formatting applied)
+function extractRawText(content) {
+  if (!content) return '';
+  return content.map(node => {
+    if (node.type === 'text') return node.text || '';
+    if (node.type === 'hardBreak') return '\n';
+    if (node.content) return extractRawText(node.content);
+    return '';
+  }).join('');
 }
 
 function serializeInline(content) {
   if (!content) return '';
   return content.map(node => {
     if (node.type === 'text') {
-      let text = node.text || '';
       const marks = node.marks || [];
+      const isCode = marks.some(m => m.type === 'code');
+      let text = node.text || '';
+
+      if (isCode) {
+        // For inline code, choose backtick fence that doesn't collide
+        let tick = '`';
+        while (text.includes(tick)) tick += '`';
+        // Add space padding if text starts/ends with backtick
+        const pad = text.startsWith('`') || text.endsWith('`') ? ' ' : '';
+        text = `${tick}${pad}${text}${pad}${tick}`;
+      } else {
+        // Escape Markdown metacharacters in plain text
+        text = escapeMarkdown(text);
+      }
+
       for (const mark of marks) {
         switch (mark.type) {
           case 'bold': text = `**${text}**`; break;
           case 'italic': text = `*${text}*`; break;
           case 'strike': text = `~~${text}~~`; break;
-          case 'code': text = `\`${text}\``; break;
+          case 'code': break; // already handled above
           case 'link': text = `[${text}](${mark.attrs?.href || ''})`; break;
           case 'underline': text = `<u>${text}</u>`; break;
         }
       }
       return text;
     }
-    if (node.type === 'image') {
-      return serializeNode(node);
-    }
+    if (node.type === 'image') return serializeNode(node);
     if (node.type === 'hardBreak') return '  \n';
     return serializeNode(node);
   }).join('');
@@ -148,8 +179,16 @@ function serializeList(node, ordered, indent = '') {
 }
 
 function serializeTable(node) {
+  // Serialize all content in each cell (join multiple blocks with <br>)
   const rows = (node.content || []).map(row =>
-    (row.content || []).map(cell => serializeInline(cell.content?.[0]?.content))
+    (row.content || []).map(cell => {
+      const blocks = cell.content || [];
+      return blocks
+        .map(block => serializeInline(block.content))
+        .join('<br>')
+        .replace(/\|/g, '\\|')  // Escape pipes in cell content
+        .replace(/\n/g, '<br>'); // Replace newlines with <br>
+    })
   );
   if (rows.length === 0) return '';
 

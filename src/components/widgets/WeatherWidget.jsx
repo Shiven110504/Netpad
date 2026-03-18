@@ -48,7 +48,7 @@ export default function WeatherWidget() {
     setError(null);
 
     try {
-      // Check cache first (if not manual refresh)
+      // Check cache first (skip when forceRefresh or manualCoords provided)
       if (!forceRefresh && !manualCoords) {
         const cached = localStorage.getItem('netpad_weather_cache');
         if (cached) {

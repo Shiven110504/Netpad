@@ -35,7 +35,12 @@ export default function FindReplace({ editor, mode, onClose }) {
 
       let match;
       while ((match = regex.exec(text)) !== null) {
-        found.push({ from: match.index, to: match.index + match[0].length, text: match[0] });
+        found.push({
+          from: match.index,
+          to: match.index + match[0].length,
+          text: match[0],
+          groups: useRegex ? [...match] : null,
+        });
         if (found.length > 10000) break; // Safety limit
       }
     } catch (e) {
@@ -97,21 +102,33 @@ export default function FindReplace({ editor, mode, onClose }) {
   const replaceAll = () => {
     if (!editor || matches.length === 0) return;
 
-    // Build a list of {from, to} positions in the actual ProseMirror doc
+    // Build doc positions using two-pointer O(nodes + matches) approach
     const positions = [];
     let textOffset = 0;
+    let matchIdx = 0;
     editor.state.doc.descendants((node, pos) => {
-      if (!node.isText) return;
-      const nodeText = node.text;
-      // For each match that falls within this text node, compute the doc position
-      for (const m of matches) {
-        if (m.from >= textOffset && m.from < textOffset + nodeText.length) {
+      if (!node.isText || matchIdx >= matches.length) return;
+      const nodeEnd = textOffset + node.text.length;
+      // Assign all matches that start within this text node
+      while (matchIdx < matches.length && matches[matchIdx].from < nodeEnd) {
+        const m = matches[matchIdx];
+        if (m.from >= textOffset) {
           const docFrom = pos + (m.from - textOffset);
           const docTo = docFrom + m.text.length;
-          positions.push({ docFrom, docTo });
+          // Compute replacement: support regex patterns ($1, $&) in regex mode
+          let replacement = replaceTerm;
+          if (useRegex && m.groups) {
+            replacement = replaceTerm.replace(/\$(\d+|&)/g, (_, ref) => {
+              if (ref === '&') return m.groups[0];
+              const idx = parseInt(ref, 10);
+              return idx < m.groups.length ? (m.groups[idx] ?? '') : `$${ref}`;
+            });
+          }
+          positions.push({ docFrom, docTo, replacement });
         }
+        matchIdx++;
       }
-      textOffset += nodeText.length;
+      textOffset = nodeEnd;
     });
 
     if (positions.length === 0) return;
@@ -119,8 +136,8 @@ export default function FindReplace({ editor, mode, onClose }) {
     // Apply replacements from end to start so earlier positions stay valid
     const { tr } = editor.state;
     for (let i = positions.length - 1; i >= 0; i--) {
-      const { docFrom, docTo } = positions[i];
-      tr.insertText(replaceTerm, docFrom, docTo);
+      const { docFrom, docTo, replacement } = positions[i];
+      tr.insertText(replacement, docFrom, docTo);
     }
     editor.view.dispatch(tr);
     setMatches([]);
