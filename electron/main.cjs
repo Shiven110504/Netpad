@@ -62,8 +62,9 @@ function createWindow() {
     }
   });
 
-  if (app.isPackaged) {
-    // Production — load the Vite build output
+  const isTest = process.env.ELECTRON_TESTING === '1';
+  if (isTest || app.isPackaged) {
+    // Production or test — load the Vite build output
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   } else {
     // Development — load the Vite dev server
@@ -79,10 +80,12 @@ function createWindow() {
   ipcMain.handle('ssh:connect', async (_event, config) => {
     const { v4: uuidv4 } = require('uuid');
     const sessionId = uuidv4();
+    console.log(`[SSH IPC] ssh:connect received for ${config.username}@${config.host}:${config.port}, authMethod=${config.authMethod}, password=${config.password ? '***' : '(none)'}`);
     try {
       const result = await sshManager.connect(sessionId, config);
       return result;
     } catch (err) {
+      console.error(`[SSH IPC] ssh:connect failed:`, err.message);
       return { sessionId, status: 'error', error: err.message };
     }
   });

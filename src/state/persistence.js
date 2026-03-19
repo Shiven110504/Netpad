@@ -14,11 +14,13 @@ function sanitizeSshTabsForSave(node) {
       ...node,
       tabs: node.tabs.map(tab => {
         if (tab.type === 'ssh') {
+          const { password, passphrase, ...safeConfig } = (tab.sshConfig || {});
           return {
             ...tab,
             sshSessionId: null,
             sshStatus: 'disconnected',
             sshError: null,
+            sshConfig: safeConfig,
           };
         }
         return tab;

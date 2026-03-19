@@ -63,6 +63,8 @@ export function createSshTab(config) {
       port: config.port || 22,
       username: config.username,
       authMethod: config.authMethod || 'password',
+      password: config.password || null,
+      passphrase: config.passphrase || null,
       sessionName: config.sessionName || '',
       keyFilePath: config.keyFilePath || null,
     },

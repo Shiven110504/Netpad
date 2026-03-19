@@ -3,9 +3,12 @@ const { EventEmitter } = require('events');
 const { readFileSync } = require('fs');
 
 class SSHManager extends EventEmitter {
-  constructor() {
+  constructor(deps = {}) {
     super();
     this.sessions = new Map();
+    // Allow dependency injection for testing
+    this._createClient = deps.createClient || (() => new Client());
+    this._readFileSync = deps.readFileSync || readFileSync;
   }
 
   connect(sessionId, config) {
@@ -14,13 +17,18 @@ class SSHManager extends EventEmitter {
         this.disconnect(sessionId);
       }
 
-      const client = new Client();
+      const client = this._createClient();
       const session = { client, channel: null, config };
       this.sessions.set(sessionId, session);
 
       this.emit('status', sessionId, 'connecting', null);
 
+      // Debug logging for SSH connections
+      console.log(`[SSH] Connecting session ${sessionId} to ${config.host}:${config.port || 22} as ${config.username}`);
+      console.log(`[SSH] Auth method: ${config.authMethod || 'password'}, password provided: ${!!config.password}, key provided: ${!!config.keyFilePath}`);
+
       client.on('ready', () => {
+        console.log(`[SSH] Session ${sessionId} ready, opening shell...`);
         client.shell(
           { term: 'xterm-256color', cols: 80, rows: 24 },
           (err, channel) => {
@@ -46,12 +54,14 @@ class SSHManager extends EventEmitter {
               this.sessions.delete(sessionId);
             });
 
+            console.log(`[SSH] Session ${sessionId} shell opened, connected successfully`);
             resolve({ sessionId, status: 'connected' });
           }
         );
       });
 
       client.on('error', (err) => {
+        console.error(`[SSH] Session ${sessionId} error:`, err.message);
         this.emit('status', sessionId, 'error', err.message);
         this.sessions.delete(sessionId);
         reject(err);
@@ -83,7 +93,7 @@ class SSHManager extends EventEmitter {
 
       if (config.authMethod === 'key' && config.keyFilePath) {
         try {
-          connConfig.privateKey = readFileSync(config.keyFilePath);
+          connConfig.privateKey = this._readFileSync(config.keyFilePath);
           if (config.passphrase) {
             connConfig.passphrase = config.passphrase;
           }
@@ -138,3 +148,4 @@ class SSHManager extends EventEmitter {
 }
 
 module.exports = new SSHManager();
+module.exports.SSHManager = SSHManager;

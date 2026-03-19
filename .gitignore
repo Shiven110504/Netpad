@@ -13,6 +13,10 @@ dist-ssr
 release
 *.local
 
+# Test artifacts
+test-results/
+playwright-report/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
