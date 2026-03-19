@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { X } from 'lucide-react';
+import { X, Terminal, Wifi, WifiOff } from 'lucide-react';
 
-export default function Tab({ tab, paneId, isActive, onActivate, onClose, onRename, onSplitRight, onSplitDown, onCompareA, onCompareB, onOpenCompare }) {
+export default function Tab({ tab, paneId, isActive, onActivate, onClose, onRename, onSplitRight, onSplitDown, onCompareA, onCompareB, onOpenCompare, onReconnect, onDisconnect, onDuplicateSession }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(tab.title);
   const [contextMenu, setContextMenu] = useState(null); // { x, y }
@@ -150,7 +150,25 @@ export default function Tab({ tab, paneId, isActive, onActivate, onClose, onRena
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
             flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
           }}>
+            {tab.type === 'ssh' && (
+              <>
+                <Terminal size={11} style={{ flexShrink: 0, opacity: 0.7 }} />
+                <span style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  flexShrink: 0,
+                  background: tab.sshStatus === 'connected' ? '#22c55e'
+                    : tab.sshStatus === 'connecting' ? '#eab308'
+                    : tab.sshStatus === 'error' ? '#ef4444'
+                    : '#6b7280',
+                }} />
+              </>
+            )}
             {tab.title}
           </span>
         )}
@@ -197,10 +215,30 @@ export default function Tab({ tab, paneId, isActive, onActivate, onClose, onRena
         >
           <ContextMenuItem onClick={handleSplitRight} label="Split Right" shortcut={'Ctrl+\\'} />
           <ContextMenuItem onClick={handleSplitDown} label="Split Down" shortcut={'Ctrl+Shift+\\'} />
-          <div style={{ height: 1, background: 'var(--tab-border, #444)', margin: '2px 0' }} />
-          <ContextMenuItem onClick={handleCompareA} label="Add to Compare Diff (A)" />
-          <ContextMenuItem onClick={handleCompareB} label="Add to Compare Diff (B)" />
-          <ContextMenuItem onClick={handleOpenCompare} label="Open Compare Diff" />
+          {tab.type === 'ssh' ? (
+            <>
+              <div style={{ height: 1, background: 'var(--tab-border, #444)', margin: '2px 0' }} />
+              <ContextMenuItem
+                onClick={(e) => { e.stopPropagation(); setContextMenu(null); onReconnect?.(); }}
+                label="Reconnect"
+              />
+              <ContextMenuItem
+                onClick={(e) => { e.stopPropagation(); setContextMenu(null); onDisconnect?.(); }}
+                label="Disconnect"
+              />
+              <ContextMenuItem
+                onClick={(e) => { e.stopPropagation(); setContextMenu(null); onDuplicateSession?.(); }}
+                label="Duplicate Session"
+              />
+            </>
+          ) : (
+            <>
+              <div style={{ height: 1, background: 'var(--tab-border, #444)', margin: '2px 0' }} />
+              <ContextMenuItem onClick={handleCompareA} label="Add to Compare Diff (A)" />
+              <ContextMenuItem onClick={handleCompareB} label="Add to Compare Diff (B)" />
+              <ContextMenuItem onClick={handleOpenCompare} label="Open Compare Diff" />
+            </>
+          )}
         </div>
       )}
     </>

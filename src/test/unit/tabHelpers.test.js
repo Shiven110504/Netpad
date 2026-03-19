@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   createTab,
   createTabWithTitle,
+  createSshTab,
   createPane,
   createSplit,
   countPanes,
@@ -67,6 +68,53 @@ describe('tabHelpers', () => {
       const t1 = createTabWithTitle('T');
       const t2 = createTabWithTitle('T');
       expect(t1.id).not.toBe(t2.id);
+    });
+  });
+
+  describe('createSshTab', () => {
+    it('creates an SSH tab with correct type and config', () => {
+      const tab = createSshTab({
+        host: '10.0.0.1',
+        port: 22,
+        username: 'root',
+        authMethod: 'password',
+        password: 'secret',
+      });
+      expect(tab.type).toBe('ssh');
+      expect(tab.sshConfig.host).toBe('10.0.0.1');
+      expect(tab.sshConfig.username).toBe('root');
+      expect(tab.sshStatus).toBe('disconnected');
+      expect(tab.sshSessionId).toBeNull();
+    });
+
+    it('includes password in sshConfig for initial connection', () => {
+      const tab = createSshTab({
+        host: '10.0.0.1',
+        username: 'root',
+        authMethod: 'password',
+        password: 'mysecret',
+      });
+      expect(tab.sshConfig.password).toBe('mysecret');
+    });
+
+    it('includes passphrase in sshConfig for key auth', () => {
+      const tab = createSshTab({
+        host: '10.0.0.1',
+        username: 'root',
+        authMethod: 'key',
+        keyFilePath: '/path/to/key',
+        passphrase: 'keypass',
+      });
+      expect(tab.sshConfig.passphrase).toBe('keypass');
+      expect(tab.sshConfig.keyFilePath).toBe('/path/to/key');
+    });
+
+    it('sets title from sessionName or username@host', () => {
+      const tab1 = createSshTab({ host: '10.0.0.1', username: 'root', sessionName: 'My Server' });
+      expect(tab1.title).toBe('My Server');
+
+      const tab2 = createSshTab({ host: '10.0.0.1', username: 'admin' });
+      expect(tab2.title).toBe('admin@10.0.0.1');
     });
   });
 

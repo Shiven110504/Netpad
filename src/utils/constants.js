@@ -4,6 +4,7 @@ export const STORAGE_KEYS = {
   KEYWORDS: 'netpad_keywords_v1',
   TODOS: 'netpad_todos_v1',
   WIDGETS: 'netpad_widgets_v1',
+  SSH_PROFILES: 'netpad_ssh_profiles_v1',
 };
 
 export const DEFAULT_SETTINGS = {
@@ -31,3 +32,19 @@ export const FONT_FAMILIES = [
 export const FONT_SIZES = [10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32];
 
 export const MAX_PANES = 4;
+
+export const DEFAULT_SSH_SETTINGS = {
+  scrollbackLines: 5000,
+  fontSize: 14,
+  fontFamily: '"SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, monospace',
+  cursorStyle: 'block',
+  cursorBlink: true,
+};
+
+export const TERMINAL_FONT_FAMILIES = [
+  { label: 'SF Mono', value: '"SF Mono", "Fira Code", Menlo, Consolas, monospace' },
+  { label: 'Fira Code', value: '"Fira Code", "Fira Mono", monospace' },
+  { label: 'Courier New', value: '"Courier New", Courier, monospace' },
+  { label: 'Menlo', value: 'Menlo, Monaco, monospace' },
+  { label: 'Consolas', value: 'Consolas, "Courier New", monospace' },
+];

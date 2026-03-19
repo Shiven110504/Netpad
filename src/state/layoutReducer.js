@@ -1,4 +1,4 @@
-import { createTab, createPane, createSplit, countPanes, findPaneById } from './tabHelpers';
+import { createTab, createSshTab, createPane, createSplit, countPanes, findPaneById } from './tabHelpers';
 import { MAX_PANES } from '../utils/constants';
 
 function updateNode(node, nodeId, updater) {
@@ -269,6 +269,50 @@ export function layoutReducer(state, action) {
           ...pane,
           tabs: pane.tabs.map(t =>
             t.id === tabId ? { ...t, isCiscoConfig } : t
+          ),
+        })),
+      };
+    }
+
+    case 'ADD_SSH_TAB': {
+      const { paneId, config } = action;
+      const newTab = createSshTab(config);
+      return {
+        ...state,
+        root: updateNode(state.root, paneId, (pane) => ({
+          ...pane,
+          tabs: [...pane.tabs, newTab],
+          activeTabId: newTab.id,
+        })),
+      };
+    }
+
+    case 'UPDATE_SSH_STATUS': {
+      const { paneId, tabId, status, error, sessionId } = action;
+      return {
+        ...state,
+        root: updateNode(state.root, paneId, (pane) => ({
+          ...pane,
+          tabs: pane.tabs.map(t =>
+            t.id === tabId ? {
+              ...t,
+              sshStatus: status,
+              sshError: error || null,
+              ...(sessionId !== undefined ? { sshSessionId: sessionId } : {}),
+            } : t
+          ),
+        })),
+      };
+    }
+
+    case 'SET_SSH_CONFIG': {
+      const { paneId, tabId, config } = action;
+      return {
+        ...state,
+        root: updateNode(state.root, paneId, (pane) => ({
+          ...pane,
+          tabs: pane.tabs.map(t =>
+            t.id === tabId ? { ...t, sshConfig: config } : t
           ),
         })),
       };

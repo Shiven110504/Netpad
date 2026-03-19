@@ -7,9 +7,42 @@ export const DEFAULT_KEYWORD_RULES = defaultRulesJson.rules.map((rule, i) => ({
   backgroundColor: rule.backgroundColor || '',
 }));
 
+function sanitizeSshTabsForSave(node) {
+  if (!node) return node;
+  if (node.type === 'pane') {
+    return {
+      ...node,
+      tabs: node.tabs.map(tab => {
+        if (tab.type === 'ssh') {
+          const { password, passphrase, ...safeConfig } = (tab.sshConfig || {});
+          return {
+            ...tab,
+            sshSessionId: null,
+            sshStatus: 'disconnected',
+            sshError: null,
+            sshConfig: safeConfig,
+          };
+        }
+        return tab;
+      }),
+    };
+  }
+  if (node.type === 'split') {
+    return {
+      ...node,
+      children: node.children.map(child => sanitizeSshTabsForSave(child)),
+    };
+  }
+  return node;
+}
+
 export function saveState(layout, settings) {
   try {
-    localStorage.setItem(STORAGE_KEYS.LAYOUT, JSON.stringify(layout));
+    const sanitizedLayout = layout ? {
+      ...layout,
+      root: sanitizeSshTabsForSave(layout.root),
+    } : layout;
+    localStorage.setItem(STORAGE_KEYS.LAYOUT, JSON.stringify(sanitizedLayout));
     if (settings) {
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
     }
@@ -61,6 +94,23 @@ export function saveTodos(todos) {
 export function loadTodos() {
   try {
     const str = localStorage.getItem(STORAGE_KEYS.TODOS);
+    return str ? JSON.parse(str) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+export function saveSshProfiles(profiles) {
+  try {
+    localStorage.setItem(STORAGE_KEYS.SSH_PROFILES, JSON.stringify(profiles));
+  } catch (e) {
+    console.warn('Failed to save SSH profiles:', e);
+  }
+}
+
+export function loadSshProfiles() {
+  try {
+    const str = localStorage.getItem(STORAGE_KEYS.SSH_PROFILES);
     return str ? JSON.parse(str) : [];
   } catch (e) {
     return [];

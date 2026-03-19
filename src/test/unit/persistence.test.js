@@ -62,6 +62,53 @@ describe('persistence', () => {
     });
   });
 
+  describe('SSH credential sanitization', () => {
+    it('strips password and passphrase from SSH tabs on save', () => {
+      const layout = {
+        root: {
+          type: 'pane',
+          id: 'p1',
+          tabs: [
+            {
+              id: 't1',
+              type: 'ssh',
+              sshSessionId: 'active-session',
+              sshStatus: 'connected',
+              sshError: null,
+              sshConfig: {
+                host: '10.0.0.1',
+                port: 22,
+                username: 'root',
+                authMethod: 'password',
+                password: 'supersecret',
+                passphrase: 'keypass',
+                sessionName: 'test',
+                keyFilePath: null,
+              },
+            },
+          ],
+          activeTabId: 't1',
+        },
+        activePaneId: 'p1',
+      };
+      saveState(layout, null);
+      const loaded = loadState();
+      const savedTab = loaded.layout.root.tabs[0];
+
+      // Session state should be reset
+      expect(savedTab.sshSessionId).toBeNull();
+      expect(savedTab.sshStatus).toBe('disconnected');
+
+      // Credentials must be stripped
+      expect(savedTab.sshConfig.password).toBeUndefined();
+      expect(savedTab.sshConfig.passphrase).toBeUndefined();
+
+      // Non-sensitive config should remain
+      expect(savedTab.sshConfig.host).toBe('10.0.0.1');
+      expect(savedTab.sshConfig.username).toBe('root');
+    });
+  });
+
   describe('saveKeywordRules / loadKeywordRules', () => {
     it('round-trips keyword rules', () => {
       const rules = [
