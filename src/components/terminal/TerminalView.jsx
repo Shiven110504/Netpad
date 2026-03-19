@@ -215,7 +215,15 @@ export default function TerminalView({ pane, tab }) {
   // Update terminal theme when app theme changes
   useEffect(() => {
     if (terminalRef.current) {
-      terminalRef.current.options.theme = getTerminalTheme(settings.theme);
+      // Use requestAnimationFrame to ensure CSS variables have been updated
+      // after the data-theme attribute change
+      requestAnimationFrame(() => {
+        if (!terminalRef.current) return;
+        const theme = getTerminalTheme(settings.theme);
+        terminalRef.current.options.theme = theme;
+        // Force xterm to repaint all rows with the new theme colors
+        terminalRef.current.refresh(0, terminalRef.current.rows - 1);
+      });
     }
   }, [settings.theme]);
 
@@ -231,6 +239,15 @@ export default function TerminalView({ pane, tab }) {
       }
     }
   }, [termSettings.fontSize, termSettings.fontFamily, termSettings.cursorBlink, termSettings.cursorStyle]);
+
+  // Handle reconnect requests from context menu
+  useEffect(() => {
+    if (tab.sshReconnectToken && tab.sshConfig) {
+      userDisconnectedRef.current = false;
+      setRetryCount(0);
+      connectSession(tab.sshConfig);
+    }
+  }, [tab.sshReconnectToken, connectSession, tab.sshConfig]);
 
   // Auto-connect on mount if config present and disconnected
   useEffect(() => {
@@ -312,12 +329,18 @@ export default function TerminalView({ pane, tab }) {
     }
   };
 
-  // Focus terminal when pane becomes active
+  // Focus terminal and re-fit when this SSH tab becomes active again
   useEffect(() => {
-    if (terminalRef.current) {
+    if (pane.activeTabId === tab.id && terminalRef.current) {
       terminalRef.current.focus();
+      // Re-fit after becoming visible (container size may have changed while hidden)
+      if (fitAddonRef.current) {
+        requestAnimationFrame(() => {
+          try { fitAddonRef.current.fit(); } catch (e) { /* ignore */ }
+        });
+      }
     }
-  }, [pane.activeTabId]);
+  }, [pane.activeTabId, tab.id]);
 
   const showOverlay = tab.sshStatus === 'disconnected' || tab.sshStatus === 'error' || tab.sshStatus === 'connecting';
 

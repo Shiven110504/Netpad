@@ -305,6 +305,19 @@ export function layoutReducer(state, action) {
       };
     }
 
+    case 'REQUEST_SSH_RECONNECT': {
+      const { paneId, tabId } = action;
+      return {
+        ...state,
+        root: updateNode(state.root, paneId, (pane) => ({
+          ...pane,
+          tabs: pane.tabs.map(t =>
+            t.id === tabId ? { ...t, sshReconnectToken: Date.now() } : t
+          ),
+        })),
+      };
+    }
+
     case 'SET_SSH_CONFIG': {
       const { paneId, tabId, config } = action;
       return {

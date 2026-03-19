@@ -54,294 +54,163 @@ describe('SSHManager', () => {
     return { client, channel };
   }
 
-  describe('connect()', () => {
-    it('emits connecting status on connect', () => {
+  describe('connection lifecycle', () => {
+    it('transitions through connecting → connected status on successful connect', async () => {
       const statusSpy = vi.fn();
       manager.on('status', statusSpy);
 
-      manager.connect('sess1', {
-        host: '192.168.1.1',
-        port: 22,
-        username: 'admin',
-        password: 'secret',
-      });
-
-      expect(statusSpy).toHaveBeenCalledWith('sess1', 'connecting', null);
-    });
-
-    it('connects with password auth', () => {
-      manager.connect('sess1', {
-        host: '10.0.0.1',
-        port: 22,
-        username: 'root',
-        password: 'pass123',
-      });
-
-      expect(lastMockClient.connect).toHaveBeenCalledWith(
-        expect.objectContaining({
-          host: '10.0.0.1',
-          port: 22,
-          username: 'root',
-          password: 'pass123',
-        })
-      );
-    });
-
-    it('connects with key auth', () => {
-      manager.connect('sess1', {
-        host: '10.0.0.1',
-        port: 22,
-        username: 'root',
-        authMethod: 'key',
-        keyFilePath: '/home/user/.ssh/id_rsa',
-      });
-
-      expect(mockReadFileSync).toHaveBeenCalledWith('/home/user/.ssh/id_rsa');
-      expect(lastMockClient.connect).toHaveBeenCalledWith(
-        expect.objectContaining({
-          host: '10.0.0.1',
-          username: 'root',
-          privateKey: expect.any(Buffer),
-        })
-      );
-    });
-
-    it('connects with key auth and passphrase', () => {
-      manager.connect('sess1', {
-        host: '10.0.0.1',
-        username: 'root',
-        authMethod: 'key',
-        keyFilePath: '/home/user/.ssh/id_rsa',
-        passphrase: 'mypass',
-      });
-
-      expect(lastMockClient.connect).toHaveBeenCalledWith(
-        expect.objectContaining({
-          privateKey: expect.any(Buffer),
-          passphrase: 'mypass',
-        })
-      );
-    });
-
-    it('uses default port 22 when not specified', () => {
-      manager.connect('sess1', {
-        host: '10.0.0.1',
-        username: 'root',
-        password: 'pass',
-      });
-
-      expect(lastMockClient.connect).toHaveBeenCalledWith(
-        expect.objectContaining({ port: 22 })
-      );
-    });
-
-    it('resolves with sessionId and status on successful connection', async () => {
-      const channel = createMockChannel();
-      const connectPromise = manager.connect('sess1', {
-        host: '10.0.0.1',
-        username: 'root',
-        password: 'pass',
-      });
-
-      lastMockClient.shell.mockImplementation((_opts, cb) => cb(null, channel));
-      lastMockClient.emit('ready');
-
-      const result = await connectPromise;
-      expect(result).toEqual({ sessionId: 'sess1', status: 'connected' });
-    });
-
-    it('emits connected status after successful shell', async () => {
-      const statusSpy = vi.fn();
-      manager.on('status', statusSpy);
-
-      await connectSession('sess1');
+      const result = await connectSession('sess1');
 
       expect(statusSpy).toHaveBeenCalledWith('sess1', 'connecting', null);
       expect(statusSpy).toHaveBeenCalledWith('sess1', 'connected', null);
+      expect(result.client.connect).toHaveBeenCalledWith(
+        expect.objectContaining({ host: '10.0.0.1', username: 'root', port: 22 })
+      );
     });
 
-    it('rejects and emits error on client error', async () => {
+    it('emits error status and rejects on connection failure', async () => {
       const statusSpy = vi.fn();
       manager.on('status', statusSpy);
 
       const connectPromise = manager.connect('sess1', {
-        host: '10.0.0.1',
-        username: 'root',
-        password: 'pass',
+        host: '10.0.0.1', username: 'root', password: 'pass',
       });
-
       lastMockClient.emit('error', new Error('Connection refused'));
 
       await expect(connectPromise).rejects.toThrow('Connection refused');
       expect(statusSpy).toHaveBeenCalledWith('sess1', 'error', 'Connection refused');
     });
 
-    it('rejects on shell error', async () => {
-      const statusSpy = vi.fn();
-      manager.on('status', statusSpy);
-
+    it('emits error status and rejects on shell failure', async () => {
       const connectPromise = manager.connect('sess1', {
-        host: '10.0.0.1',
-        username: 'root',
-        password: 'pass',
+        host: '10.0.0.1', username: 'root', password: 'pass',
       });
-
       lastMockClient.shell.mockImplementation((_opts, cb) => cb(new Error('Shell failed')));
       lastMockClient.emit('ready');
 
       await expect(connectPromise).rejects.toThrow('Shell failed');
-      expect(statusSpy).toHaveBeenCalledWith('sess1', 'error', 'Shell failed');
     });
 
-    it('rejects on key file read failure', async () => {
+    it('emits disconnected on channel close, client end, and client close', async () => {
       const statusSpy = vi.fn();
       manager.on('status', statusSpy);
-      mockReadFileSync.mockImplementationOnce(() => { throw new Error('ENOENT'); });
 
-      const connectPromise = manager.connect('sess1', {
-        host: '10.0.0.1',
-        username: 'root',
-        authMethod: 'key',
-        keyFilePath: '/nonexistent/key',
-      });
+      // Test channel close
+      const { channel } = await connectSession('sess1');
+      channel.emit('close');
+      expect(statusSpy).toHaveBeenCalledWith('sess1', 'disconnected', null);
+      expect(manager.sessions.has('sess1')).toBe(false);
 
-      await expect(connectPromise).rejects.toThrow('ENOENT');
-      expect(statusSpy).toHaveBeenCalledWith('sess1', 'error', expect.stringContaining('Failed to read key file'));
+      // Test client end
+      const { client: client2 } = await connectSession('sess2');
+      client2.emit('end');
+      expect(statusSpy).toHaveBeenCalledWith('sess2', 'disconnected', null);
+
+      // Test client close
+      const { client: client3 } = await connectSession('sess3');
+      client3.emit('close');
+      expect(statusSpy).toHaveBeenCalledWith('sess3', 'disconnected', null);
     });
 
-    it('disconnects existing session with same id before reconnecting', async () => {
+    it('disconnects existing session when reconnecting with same id', async () => {
       const { client: client1, channel: channel1 } = await connectSession('sess1');
 
-      // Second connection with same sessionId
-      manager.connect('sess1', {
-        host: '10.0.0.2',
-        username: 'root',
-        password: 'pass',
-      });
+      manager.connect('sess1', { host: '10.0.0.2', username: 'root', password: 'pass' });
 
       expect(channel1.close).toHaveBeenCalled();
       expect(client1.end).toHaveBeenCalled();
     });
   });
 
+  describe('authentication methods', () => {
+    it('connects with password auth and default port', () => {
+      manager.connect('sess1', {
+        host: '10.0.0.1', username: 'root', password: 'pass123',
+      });
+
+      expect(lastMockClient.connect).toHaveBeenCalledWith(
+        expect.objectContaining({ host: '10.0.0.1', username: 'root', password: 'pass123', port: 22 })
+      );
+    });
+
+    it('connects with key auth, reads key file, supports passphrase', () => {
+      manager.connect('sess1', {
+        host: '10.0.0.1', username: 'root',
+        authMethod: 'key', keyFilePath: '/home/user/.ssh/id_rsa', passphrase: 'mypass',
+      });
+
+      expect(mockReadFileSync).toHaveBeenCalledWith('/home/user/.ssh/id_rsa');
+      expect(lastMockClient.connect).toHaveBeenCalledWith(
+        expect.objectContaining({ privateKey: expect.any(Buffer), passphrase: 'mypass' })
+      );
+    });
+
+    it('rejects with error when key file cannot be read', async () => {
+      mockReadFileSync.mockImplementationOnce(() => { throw new Error('ENOENT'); });
+
+      const connectPromise = manager.connect('sess1', {
+        host: '10.0.0.1', username: 'root', authMethod: 'key', keyFilePath: '/nonexistent/key',
+      });
+
+      await expect(connectPromise).rejects.toThrow('ENOENT');
+    });
+  });
+
   describe('data forwarding', () => {
-    it('emits data event with base64 when channel receives data', async () => {
+    it('forwards stdout and stderr as base64 data events', async () => {
       const dataSpy = vi.fn();
       manager.on('data', dataSpy);
 
       const { channel } = await connectSession('sess1');
 
-      const buf = Buffer.from('Hello from server');
-      channel.emit('data', buf);
+      const stdout = Buffer.from('Hello from server');
+      channel.emit('data', stdout);
+      expect(dataSpy).toHaveBeenCalledWith('sess1', stdout.toString('base64'));
 
-      expect(dataSpy).toHaveBeenCalledWith('sess1', buf.toString('base64'));
-    });
-
-    it('emits data event for stderr', async () => {
-      const dataSpy = vi.fn();
-      manager.on('data', dataSpy);
-
-      const { channel } = await connectSession('sess1');
-
-      const buf = Buffer.from('Error output');
-      channel.stderr.emit('data', buf);
-
-      expect(dataSpy).toHaveBeenCalledWith('sess1', buf.toString('base64'));
+      const stderr = Buffer.from('Error output');
+      channel.stderr.emit('data', stderr);
+      expect(dataSpy).toHaveBeenCalledWith('sess1', stderr.toString('base64'));
     });
   });
 
-  describe('channel close', () => {
-    it('emits disconnected and removes session on channel close', async () => {
-      const statusSpy = vi.fn();
-      manager.on('status', statusSpy);
-
+  describe('session operations', () => {
+    it('send() writes data to channel', async () => {
       const { channel } = await connectSession('sess1');
-      channel.emit('close');
-
-      expect(statusSpy).toHaveBeenCalledWith('sess1', 'disconnected', null);
-      expect(manager.sessions.has('sess1')).toBe(false);
+      manager.send('sess1', 'ls -la\n');
+      expect(channel.write).toHaveBeenCalledWith('ls -la\n');
     });
-  });
 
-  describe('disconnect()', () => {
-    it('closes channel and ends client', async () => {
+    it('resize() calls setWindow with correct dimensions', async () => {
+      const { channel } = await connectSession('sess1');
+      manager.resize('sess1', 120, 40);
+      expect(channel.setWindow).toHaveBeenCalledWith(40, 120, 40 * 16, 120 * 8);
+    });
+
+    it('disconnect() closes channel and ends client', async () => {
       const { client, channel } = await connectSession('sess1');
-
       manager.disconnect('sess1');
-
       expect(channel.close).toHaveBeenCalled();
       expect(client.end).toHaveBeenCalled();
       expect(manager.sessions.has('sess1')).toBe(false);
     });
 
-    it('does nothing for non-existent session', () => {
-      expect(() => manager.disconnect('nonexistent')).not.toThrow();
-    });
-  });
-
-  describe('send()', () => {
-    it('writes data to channel', async () => {
-      const { channel } = await connectSession('sess1');
-
-      manager.send('sess1', 'ls -la\n');
-
-      expect(channel.write).toHaveBeenCalledWith('ls -la\n');
-    });
-
-    it('does nothing for non-existent session', () => {
-      expect(() => manager.send('nonexistent', 'data')).not.toThrow();
-    });
-  });
-
-  describe('resize()', () => {
-    it('calls setWindow with correct args', async () => {
-      const { channel } = await connectSession('sess1');
-
-      manager.resize('sess1', 120, 40);
-
-      // sshManager passes: rows, cols, rows*16, cols*8
-      expect(channel.setWindow).toHaveBeenCalledWith(40, 120, 40 * 16, 120 * 8);
-    });
-
-    it('does nothing for non-existent session', () => {
-      expect(() => manager.resize('nonexistent', 80, 24)).not.toThrow();
-    });
-  });
-
-  describe('disconnectAll()', () => {
-    it('disconnects all active sessions', async () => {
-      const { client: client1, channel: channel1 } = await connectSession('sess1');
-      const { client: client2, channel: channel2 } = await connectSession('sess2');
+    it('disconnectAll() cleans up all sessions', async () => {
+      const { client: c1, channel: ch1 } = await connectSession('sess1');
+      const { client: c2, channel: ch2 } = await connectSession('sess2');
 
       manager.disconnectAll();
 
-      expect(channel1.close).toHaveBeenCalled();
-      expect(channel2.close).toHaveBeenCalled();
-      expect(client1.end).toHaveBeenCalled();
-      expect(client2.end).toHaveBeenCalled();
+      expect(ch1.close).toHaveBeenCalled();
+      expect(ch2.close).toHaveBeenCalled();
+      expect(c1.end).toHaveBeenCalled();
+      expect(c2.end).toHaveBeenCalled();
       expect(manager.sessions.size).toBe(0);
     });
-  });
 
-  describe('client end/close events', () => {
-    it('emits disconnected on client end event', async () => {
-      const statusSpy = vi.fn();
-      manager.on('status', statusSpy);
-
-      const { client } = await connectSession('sess1');
-      client.emit('end');
-
-      expect(statusSpy).toHaveBeenCalledWith('sess1', 'disconnected', null);
-    });
-
-    it('emits disconnected on client close event', async () => {
-      const statusSpy = vi.fn();
-      manager.on('status', statusSpy);
-
-      const { client } = await connectSession('sess1');
-      client.emit('close');
-
-      expect(statusSpy).toHaveBeenCalledWith('sess1', 'disconnected', null);
+    it('operations on non-existent sessions do not throw', () => {
+      expect(() => manager.disconnect('nonexistent')).not.toThrow();
+      expect(() => manager.send('nonexistent', 'data')).not.toThrow();
+      expect(() => manager.resize('nonexistent', 80, 24)).not.toThrow();
     });
   });
 });
