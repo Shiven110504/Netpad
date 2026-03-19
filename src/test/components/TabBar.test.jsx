@@ -44,6 +44,11 @@ vi.mock('../../state/AppContext', () => ({
   useApp: () => ({
     dispatch: mockDispatch,
     layout: { activePaneId: 'pane1' },
+    setCompareSlotA: vi.fn(),
+    setCompareSlotB: vi.fn(),
+    openConfigDiffRef: { current: null },
+    showConnectionDialog: vi.fn(),
+    setShowConnectionDialog: vi.fn(),
   }),
 }));
 

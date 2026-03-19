@@ -94,7 +94,7 @@ export default function TabBar({ pane }) {
               onCompareB={() => { fillSlot(tab, setCompareSlotB); openConfigDiffRef.current?.(); }}
               onOpenCompare={() => openConfigDiffRef.current?.()}
               onReconnect={() => {
-                // Reconnect is handled by TerminalView component
+                // Disconnect existing session first, then request reconnect
                 if (tab.sshSessionId && window.sshAPI?.isAvailable) {
                   window.sshAPI.disconnect(tab.sshSessionId);
                 }
@@ -104,6 +104,11 @@ export default function TabBar({ pane }) {
                   tabId: tab.id,
                   status: 'disconnected',
                   sessionId: null,
+                });
+                dispatch({
+                  type: 'REQUEST_SSH_RECONNECT',
+                  paneId: pane.id,
+                  tabId: tab.id,
                 });
               }}
               onDisconnect={() => {

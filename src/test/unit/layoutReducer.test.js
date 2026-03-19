@@ -254,6 +254,53 @@ describe('layoutReducer', () => {
     expect(secondTab.isMarkdown).toBe(false);
   });
 
+  it('ADD_SSH_TAB adds an SSH tab with correct type and config', () => {
+    const initial = initialLayout();
+    const config = { host: '10.0.0.1', port: 22, username: 'root', authMethod: 'password', password: 'pass' };
+    const state = layoutReducer(initial, { type: 'ADD_SSH_TAB', paneId: initial.root.id, config });
+    const sshTab = state.root.tabs.find(t => t.type === 'ssh');
+    expect(sshTab).toBeTruthy();
+    expect(sshTab.sshConfig.host).toBe('10.0.0.1');
+    expect(sshTab.sshStatus).toBe('disconnected');
+    expect(state.root.activeTabId).toBe(sshTab.id);
+  });
+
+  it('UPDATE_SSH_STATUS updates status and sessionId on SSH tab', () => {
+    const initial = initialLayout();
+    const config = { host: '10.0.0.1', username: 'root' };
+    const withSsh = layoutReducer(initial, { type: 'ADD_SSH_TAB', paneId: initial.root.id, config });
+    const sshTab = withSsh.root.tabs.find(t => t.type === 'ssh');
+
+    const state = layoutReducer(withSsh, {
+      type: 'UPDATE_SSH_STATUS',
+      paneId: initial.root.id,
+      tabId: sshTab.id,
+      status: 'connected',
+      sessionId: 'sess-123',
+    });
+
+    const updatedTab = state.root.tabs.find(t => t.id === sshTab.id);
+    expect(updatedTab.sshStatus).toBe('connected');
+    expect(updatedTab.sshSessionId).toBe('sess-123');
+  });
+
+  it('REQUEST_SSH_RECONNECT sets a reconnect token on the SSH tab', () => {
+    const initial = initialLayout();
+    const config = { host: '10.0.0.1', username: 'root' };
+    const withSsh = layoutReducer(initial, { type: 'ADD_SSH_TAB', paneId: initial.root.id, config });
+    const sshTab = withSsh.root.tabs.find(t => t.type === 'ssh');
+
+    const state = layoutReducer(withSsh, {
+      type: 'REQUEST_SSH_RECONNECT',
+      paneId: initial.root.id,
+      tabId: sshTab.id,
+    });
+
+    const updatedTab = state.root.tabs.find(t => t.id === sshTab.id);
+    expect(updatedTab.sshReconnectToken).toBeDefined();
+    expect(typeof updatedTab.sshReconnectToken).toBe('number');
+  });
+
   it('unknown action returns state unchanged', () => {
     const initial = initialLayout();
     const state = layoutReducer(initial, { type: 'UNKNOWN_ACTION' });
