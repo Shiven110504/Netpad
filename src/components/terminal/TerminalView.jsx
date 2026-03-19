@@ -19,6 +19,12 @@ export default function TerminalView({ pane, tab }) {
   const [retryCount, setRetryCount] = useState(0);
   const [retryCountdown, setRetryCountdown] = useState(0);
   const userDisconnectedRef = useRef(false);
+  const sessionIdRef = useRef(tab.sshSessionId);
+
+  // Keep sessionId ref in sync so xterm onData closure always has current value
+  useEffect(() => {
+    sessionIdRef.current = tab.sshSessionId;
+  }, [tab.sshSessionId]);
 
   const termSettings = settings.terminal || DEFAULT_SSH_SETTINGS;
 
@@ -120,18 +126,18 @@ export default function TerminalView({ pane, tab }) {
       requestAnimationFrame(() => {
         try {
           fitAddon.fit();
-          if (tab.sshSessionId && window.sshAPI?.isAvailable) {
-            window.sshAPI.resize(tab.sshSessionId, term.cols, term.rows);
+          if (sessionIdRef.current && window.sshAPI?.isAvailable) {
+            window.sshAPI.resize(sessionIdRef.current, term.cols, term.rows);
           }
         } catch (e) { /* ignore */ }
       });
     });
     ro.observe(containerRef.current);
 
-    // Handle terminal input → SSH
+    // Handle terminal input → SSH (use ref to avoid stale closure)
     const dataDisposable = term.onData((data) => {
-      if (tab.sshSessionId && window.sshAPI?.isAvailable) {
-        window.sshAPI.send(tab.sshSessionId, data);
+      if (sessionIdRef.current && window.sshAPI?.isAvailable) {
+        window.sshAPI.send(sessionIdRef.current, data);
       }
     });
 
@@ -147,8 +153,8 @@ export default function TerminalView({ pane, tab }) {
       // Ctrl+Shift+V → paste
       if (domEvent.ctrlKey && domEvent.shiftKey && domEvent.key === 'V') {
         navigator.clipboard.readText().then(text => {
-          if (text && tab.sshSessionId && window.sshAPI?.isAvailable) {
-            window.sshAPI.send(tab.sshSessionId, text);
+          if (text && sessionIdRef.current && window.sshAPI?.isAvailable) {
+            window.sshAPI.send(sessionIdRef.current, text);
           }
         });
       }
